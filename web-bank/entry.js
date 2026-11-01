@@ -7,5 +7,5 @@ KB.Registry = require('../core/registry.js');
 KB.Generators = require('../generators/index.js');
 KB.Paper = require('../core/paper.js');
 
-KB.version = '1.0.0';
+KB.version = window.KB_BUILD ? window.KB_BUILD.version : 'dev';
 KB.ready = true;

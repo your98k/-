@@ -31,6 +31,15 @@ body{
   background:rgba(255,255,255,.14);white-space:nowrap;
 }
 .version{font-size:11px;opacity:.6}
+.pwa-update{
+  position:fixed;z-index:100;bottom:calc(16px + env(safe-area-inset-bottom));
+  left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);
+  display:flex;align-items:center;gap:12px;padding:12px 16px;
+  border:1px solid var(--brand);border-radius:var(--radius);background:#fff;
+  box-shadow:0 4px 24px rgba(0,0,0,.16);font-size:13px;
+}
+.pwa-update[hidden]{display:none}
+.pwa-update .mini{flex-shrink:0}
 
 /* ---------- 布局 ---------- */
 .layout{display:flex;height:calc(100% - 60px);overflow:hidden}
@@ -214,7 +223,7 @@ body{
 /* ---------- 打印 ---------- */
 @media print{
   body{background:#fff}
-  .topbar,.panel,.toolbar,.meta-bar{display:none!important}
+  .topbar,.panel,.toolbar,.meta-bar,.pwa-update{display:none!important}
   .layout{height:auto;display:block}
   .main{overflow:visible}
   .paper-wrap{padding:0;overflow:visible;display:block}

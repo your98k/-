@@ -552,7 +552,9 @@
     Generators.stats().forEach(function (x) { gen += x.kps; });
     $('#statBank').textContent = '知识点 ' + bank;
     $('#statGen').textContent = '已覆盖 ' + gen;
-    $('#ver').textContent = 'v' + (KB.version || '1.0.0');
+    var build = window.KB_BUILD;
+    $('#ver').textContent = 'v' + KB.version + (build ? ' · ' + build.revision.slice(0, 7) : '');
+    $('#ver').title = build ? '构建版本 ' + build.revision : '未构建的开发版本';
   }
 
   /* ---------- 事件 ---------- */

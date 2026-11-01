@@ -9,7 +9,9 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const ENTRY = path.join(ROOT, 'web-bank', 'entry.js');
-const OUT = path.join(ROOT, 'web-bank', 'kb.bundle.js');
+const OUT = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : path.join(ROOT, 'web-bank', 'kb.bundle.js');
 
 const modules = new Map(); // id -> {code, deps}
 
@@ -44,7 +46,7 @@ function add(file) {
 
 add(ENTRY);
 
-let out = `/* 自动生成，请勿手改。源：core/ generators/ utils/ · ${new Date().toISOString()} */\n`;
+let out = '/* 自动生成，请勿手改。源：core/ generators/ utils/ */\n';
 out += '(function(){\n"use strict";\n';
 out += 'var __defs = {\n';
 const parts = [];

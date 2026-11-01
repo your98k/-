@@ -1,0 +1,24 @@
+{
+  "name": "k12-question-bank",
+  "version": "1.1.0",
+  "private": true,
+  "description": "纯前端 K12 多学科组卷与错题本 PWA",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your98k/k12-question-bank.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node tools/build-site.js",
+    "prepreview": "npm run build",
+    "preview": "node tools/preview.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "katex": "0.18.2"
+  }
+}
