@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>组卷台 · K12 题库</title>
+<meta name="theme-color" content="#0e6b5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="中小学题库">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="ios-install" id="iosInstall">
+  <b>安装到主屏幕：</b>点底部分享按钮 → 「添加到主屏幕」，以后像 App 一样打开
+  <button id="iosInstallClose" aria-label="关闭">×</button>
+</div>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">卷</span>
+    <div>
+      <h1>组卷台</h1>
+      <p>K12 题库 · 按知识点智能组卷</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="stat-pill" id="statBank">—</span>
+    <span class="stat-pill" id="statGen">—</span>
+    <span class="version" id="ver">v1.0.0</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- 左侧：出卷条件 -->
+  <aside class="panel" id="panel">
+    <section class="block">
+      <h2>学科</h2>
+      <div class="chips" id="subjectChips"></div>
+    </section>
+
+    <section class="block">
+      <h2>学段 / 年级</h2>
+      <div class="chips" id="stageChips"></div>
+      <div class="row">
+        <select id="gradeSel" class="sel"></select>
+        <select id="termSel" class="sel">
+          <option value="1">上学期</option>
+          <option value="2">下学期</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>知识点 <span class="hint" id="kpCount"></span></h2>
+      <div class="kp-tools">
+        <button class="mini" id="kpAll">全选</button>
+        <button class="mini" id="kpNone">清空</button>
+        <span class="mini-note">不选 = 本年级全部</span>
+      </div>
+      <div class="kp-list" id="kpList"></div>
+    </section>
+
+    <section class="block">
+      <h2>大题设置</h2>
+      <div id="sectionEditor" class="sections"></div>
+      <button class="mini wide" id="addSection">+ 添加大题</button>
+    </section>
+  </aside>
+
+  <!-- 右侧：试卷 -->
+  <main class="main">
+    <div class="toolbar">
+      <button class="btn primary" id="btnBuild">生成试卷</button>
+      <button class="btn" id="btnShuffle">换一套</button>
+      <label class="toggle"><input type="checkbox" id="chkAnswer" checked> 显示答案</label>
+      <label class="toggle"><input type="checkbox" id="chkKpTag"> 标注知识点</label>
+      <span class="spacer"></span>
+      <button class="btn" id="btnWord">导出 Word</button>
+      <button class="btn" id="btnTxt">复制文本</button>
+      <button class="btn" id="btnPrint">打印 / PDF</button>
+      <button class="btn" id="btnWrong">错题本 <b id="wrongCount">0</b></button>
+    </div>
+
+    <div class="meta-bar" id="metaBar"></div>
+
+    <div class="paper-wrap">
+      <div class="paper empty" id="paper">
+        <div class="empty-inner">
+          <div class="empty-icon">📄</div>
+          <h3>还没有试卷</h3>
+          <p>左边选好学科、年级和知识点，点「生成试卷」。<br>每次生成都会得到一套新题，点「换一套」可再来一份。</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="wrongModal" style="display:none">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>错题本</h3>
+      <span class="modal-sub" id="wbSummary"></span>
+      <button class="modal-close" id="wbClose">×</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="tab on" data-tab="wrong">错题</button>
+      <button class="tab" data-tab="all">全部记录</button>
+      <button class="tab" data-tab="weak">薄弱知识点</button>
+    </div>
+    <div class="modal-body" id="wbBody"></div>
+    <div class="modal-foot">
+      <button class="btn primary" id="wbBuild">按薄弱知识点出变式卷</button>
+      <button class="btn" id="wbClear">清空错题本</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/katex/katex.min.js"></script>
+<script src="mathrender.js"></script>
+<script src="wrongbook.js"></script>
+<script src="kb.bundle.js"></script>
+<script src="app.js"></script>
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var standalone = window.navigator.standalone ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+  if (isIOS && !standalone) {
+    var tip = document.getElementById('iosInstall');
+    if (tip) {
+      tip.style.display = 'flex';
+      var close = document.getElementById('iosInstallClose');
+      if (close) close.onclick = function () { tip.style.display = 'none'; };
+    }
+  }
+
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>

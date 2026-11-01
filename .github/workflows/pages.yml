@@ -1,0 +1,58 @@
+name: Deploy PWA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build question bundle
+        run: node tools/build-web.js
+
+      - name: Assemble site with KaTeX
+        run: |
+          mkdir -p _site
+          cp -R web-bank/. _site/
+          rm -rf _site/vendor
+          mkdir -p _site/vendor/katex
+          curl -L --fail -o katex.tgz https://registry.npmjs.org/katex/-/katex-0.16.11.tgz
+          tar -xzf katex.tgz
+          cp package/dist/katex.min.js package/dist/katex.min.css _site/vendor/katex/
+          cp -R package/dist/fonts _site/vendor/katex/
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
