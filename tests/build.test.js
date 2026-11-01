@@ -56,7 +56,7 @@ test('构建输出真实 PNG 尺寸、安装清单和无字体依赖的源图标
 test('离线清单包含 HTML 实际引用的指纹资源和全部 KaTeX 字体', () => {
   const metadata = info();
   const assets = new Set(metadata.assets);
-  const base = 'https://example.test/k12-question-bank/';
+  const base = 'https://example.test/k12-ai-question-bank/';
   for (const asset of assets) {
     const url = new URL(asset, base);
     assert.ok(url.href.startsWith(base));

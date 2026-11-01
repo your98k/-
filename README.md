@@ -3,7 +3,7 @@
   <h1>组卷台</h1>
   <p>一个简单好用的中小学智能题库</p>
   <p>数学 · 语文 · 英语 · 物理 · 化学</p>
-  <p><a href="https://your98k.github.io/k12-question-bank/"><strong>立即开始组卷 →</strong></a></p>
+  <p><a href="https://your98k.github.io/k12-ai-question-bank/"><strong>立即开始组卷 →</strong></a></p>
 </div>
 
 ## 功能亮点
@@ -29,7 +29,7 @@
 
 ```bash
 npm ci
-npm run preview  # http://127.0.0.1:8080/k12-question-bank/
+npm run preview  # http://127.0.0.1:8080/k12-ai-question-bank/
 ```
 
 `npm run build` 构建到 `_site/`，`npm test` 运行测试。推送到 `main` 后，GitHub Actions 会自动测试并部署到 Pages。

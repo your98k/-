@@ -1,12 +1,12 @@
 {
-  "name": "k12-question-bank",
+  "name": "k12-ai-question-bank",
   "version": "1.2.0",
   "private": true,
   "description": "纯前端 K12 多学科组卷与错题本 PWA",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your98k/k12-question-bank.git"
+    "url": "git+https://github.com/your98k/k12-ai-question-bank.git"
   },
   "engines": {
     "node": ">=22"

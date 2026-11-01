@@ -4,7 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..', '_site');
-const BASE = '/k12-question-bank/';
+const BASE = '/k12-ai-question-bank/';
 const port = Number(process.env.PORT || process.argv[2] || 8080);
 const types = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
