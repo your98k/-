@@ -491,10 +491,11 @@
       '.section-title{font-weight:bold;margin:12pt 0 6pt}' +
       '.q{margin:0 0 8pt}' +
       '.q .ws{height:80pt;border:1px dashed #999;margin:4pt 0}' +
-      '.q .ws-vertical{height:110pt}' +
-      '.q .ws-app{height:120pt}' +
-      '.q .ws-proof{height:130pt}' +
-      '.q .ws-short{height:100pt}' +
+      '.q .ws-vertical{height:160pt}' +
+      '.q .ws-calc{height:100pt}' +
+      '.q .ws-app{height:130pt}' +
+      '.q .ws-proof{height:150pt}' +
+      '.q .ws-short{height:110pt}' +
       '.opts span{display:inline-block;min-width:120pt}' +
       '.q .kp-tag{color:#0e6b5c;font-size:8pt}' +
       '.answers{page-break-before:always;border-top:1pt solid #000;padding-top:8pt}' +
