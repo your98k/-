@@ -147,8 +147,8 @@ body{
   display:flex;gap:26px;justify-content:center;font-size:13px;color:var(--ink-2);
   border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:20px;flex-wrap:wrap;
 }
-.section-title{font-weight:700;font-size:15px;margin:22px 0 10px}
-.q{margin:0 0 14px;font-size:14.5px;line-height:1.95;page-break-inside:avoid}
+.section-title{font-weight:700;font-size:15px;margin:22px 0 10px;break-after:avoid}
+.q{margin:0 0 14px;font-size:14.5px;line-height:1.95;page-break-inside:avoid;break-inside:avoid}
 .q .no{font-weight:600;margin-right:4px}
 .q .kp-tag{
   font-size:11px;color:var(--brand);border:1px solid #cfe3de;background:#f1f8f6;
@@ -157,7 +157,54 @@ body{
 .q .score{font-size:11px;color:var(--ink-3);margin-left:4px}
 .q .opts{margin:4px 0 0;display:flex;flex-wrap:wrap;gap:6px 26px;font-size:14px}
 .q .opts span{min-width:150px}
-.q .ws{height:52px;border-bottom:1px dashed #d8dee4;margin-top:6px}
+.q .ws {
+  position: relative;
+  margin-top: 8px;
+  border: 1px dashed #d8dee4;
+  border-radius: 4px;
+  background-color: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  break-inside: avoid;
+}
+.q .ws::before {
+  content: attr(data-label);
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  font-size: 10px;
+  color: #b0bcc4;
+}
+/* 竖式：两列、横向每 48px 一条辅助线，给列竖式留足位置 */
+.q .ws-vertical {
+  height: 150px;
+  background-image:
+    linear-gradient(to right, #eef3f1 1px, transparent 1px),
+    repeating-linear-gradient(to bottom, transparent 0 48px, #eef3f1 48px 49px);
+  background-size: 50% 100%, 100% 100%;
+}
+/* 脱式 / 解方程 / 简算：三行左右 */
+.q .ws-calc {
+  height: 112px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 35px, #f1f5f3 35px 36px);
+}
+/* 应用题 / 解答题：四到五行 */
+.q .ws-app {
+  height: 160px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, #f1f5f3 31px 32px);
+}
+.q .ws-proof {
+  height: 180px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, #f1f5f3 31px 32px);
+}
+.q .ws-short {
+  height: 130px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, #f1f5f3 31px 32px);
+}
+
+/* 难度自定义 */
+.diff-custom { align-items: center; }
+.diff-dash { color: #a3b0ac; font-size: 12px; }
 .answers{margin-top:26px;border-top:2px solid var(--ink);padding-top:14px;page-break-before:always}
 .answers h3{font-size:15px;margin:0 0 10px}
 .ans-item{font-size:13px;line-height:1.85;margin-bottom:5px;color:var(--ink-2)}
