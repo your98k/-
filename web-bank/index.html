@@ -45,6 +45,16 @@
 
   <!-- 左侧：出卷条件 -->
   <aside class="panel" id="panel">
+    <fieldset id="conditionFields" class="condition-fields">
+    <section class="block source-block">
+      <h2>出题方式</h2>
+      <div class="chips">
+        <button class="chip on" id="modeLocal" type="button" aria-pressed="true">本地题库</button>
+        <button class="chip" id="modeAI" type="button" aria-pressed="false">AI 原创新题</button>
+        <button class="mini" id="btnAISettings" type="button">API 设置</button>
+      </div>
+      <p class="mini-note source-note" id="sourceHint">本地模板随机出题，无需联网、不产生 API 费用。</p>
+    </section>
     <section class="block">
       <h2>学科</h2>
       <div class="chips" id="subjectChips"></div>
@@ -88,6 +98,7 @@
       <div id="sectionEditor" class="sections"></div>
       <button class="mini wide" id="addSection">+ 添加大题</button>
     </section>
+    </fieldset>
   </aside>
 
   <!-- 右侧：试卷 -->
@@ -104,6 +115,10 @@
       <button class="btn" id="btnWrong">错题本 <b id="wrongCount">0</b></button>
     </div>
 
+    <div class="ai-progress" id="aiProgress" role="status" hidden>
+      <span id="aiProgressText"></span>
+      <button class="mini" id="btnAICancel" type="button">取消生成</button>
+    </div>
     <div class="meta-bar" id="metaBar"></div>
 
     <div class="paper-wrap">
@@ -116,6 +131,34 @@
       </div>
     </div>
   </main>
+</div>
+
+<div class="modal" id="aiModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="aiSettingsTitle">
+  <form class="modal-card ai-settings" id="aiSettingsForm" autocomplete="off">
+    <div class="modal-head">
+      <h3 id="aiSettingsTitle">个人 API 设置</h3>
+      <button class="modal-close" id="aiSettingsClose" type="button" aria-label="关闭 API 设置">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="ai-notice">仅支持 OpenAI 兼容的 Chat Completions 接口。API Key 只在本页内存中保留，刷新后需重新填写；不会上传到 GitHub，也不会写入本地存储。</p>
+      <label class="ai-field" for="aiBaseUrl">API 地址
+        <input id="aiBaseUrl" type="url" class="sel" placeholder="https://api.example.com/v1" maxlength="500" required autocomplete="off" spellcheck="false" autocapitalize="none">
+      </label>
+      <label class="ai-field" for="aiModel">模型 ID
+        <input id="aiModel" type="text" class="sel" placeholder="填写服务商提供的模型 ID" maxlength="160" required autocomplete="off" spellcheck="false" autocapitalize="none">
+      </label>
+      <label class="ai-field" for="aiKey">API Key
+        <input id="aiKey" type="password" class="sel" placeholder="仅输入你自己的密钥" maxlength="1000" required autocomplete="off" spellcheck="false" autocapitalize="none">
+      </label>
+      <p class="mini-note">保存时只记住地址和模型，不发送请求。点击 AI 生成才会调用你填写的接口并按服务商计费，Key 也只发给该地址；请使用可信接口及低额度专用 Key。</p>
+      <p class="mini-note">接口必须支持浏览器跨域（CORS）与 HTTPS。网络或 CORS 错误不能靠关闭浏览器安全限制解决；不要使用公共代理转发密钥。</p>
+      <p id="aiSettingsError" class="ai-error" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="aiSettingsClear" type="button">清除设置与密钥</button>
+      <button class="btn primary" type="submit">保存设置</button>
+    </div>
+  </form>
 </div>
 
 <div class="modal" id="wrongModal" style="display:none">
@@ -143,6 +186,8 @@
 <script src="mathrender.js"></script>
 <script src="wrongbook.js"></script>
 <script src="kb.bundle.js"></script>
+<script src="ai.js"></script>
+<script src="ai-settings.js"></script>
 <script src="app.js"></script>
 <script src="pwa.js"></script>
 </body>

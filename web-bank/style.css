@@ -31,6 +31,23 @@ body{
   background:rgba(255,255,255,.14);white-space:nowrap;
 }
 .version{font-size:11px;opacity:.6}
+.condition-fields{border:0;margin:0;padding:0;min-width:0}
+.source-block{border-bottom:1px solid var(--line);padding-bottom:12px}
+.source-note{margin:8px 0 0;line-height:1.65}
+.ai-settings{width:560px}
+.ai-field{display:flex;flex-direction:column;gap:6px;margin:14px 0;color:var(--ink-2);font-weight:600}
+.ai-field input{width:100%;font-size:16px;font-weight:400;padding:9px 10px}
+.ai-notice{padding:10px 12px;margin:0;background:#eef7f4;border-radius:8px;font-size:13px;line-height:1.7}
+.ai-error{font-size:13px;min-height:1.7em;color:#b43c20;white-space:pre-wrap}
+.ai-progress{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#eef7f4;border-bottom:1px solid var(--line);font-size:13px;line-height:1.6}
+.ai-progress span{flex:1}
+.ai-progress[hidden]{display:none}
+.ai-progress .mini{flex-shrink:0}
+.paper-source{text-align:center;color:var(--ink-3);font-size:11px;margin:4px 0 10px}
+.source-badge{color:var(--brand)}
+.ai-replace{font-size:11px;white-space:nowrap}
+button:disabled{opacity:.5;cursor:not-allowed}
+
 .pwa-update{
   position:fixed;z-index:100;bottom:calc(16px + env(safe-area-inset-bottom));
   left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);
@@ -223,7 +240,7 @@ body{
 /* ---------- 打印 ---------- */
 @media print{
   body{background:#fff}
-  .topbar,.panel,.toolbar,.meta-bar,.pwa-update{display:none!important}
+  .topbar,.panel,.toolbar,.meta-bar,.pwa-update,.ai-progress{display:none!important}
   .layout{height:auto;display:block}
   .main{overflow:visible}
   .paper-wrap{padding:0;overflow:visible;display:block}

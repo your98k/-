@@ -29,7 +29,10 @@
   }
 
   function keyOf(q) {
-    return [q.subject, q.stage, q.kp, q.type, (q.stem || '').slice(0, 120)].join('|');
+    // AI 阅读/应用题常共享长材料，不能只按前 120 字合并；本地旧键保持不变。
+    var stem = q.stem || '';
+    var token = q.source === 'ai' ? 'ai:' + stem : stem.slice(0, 120);
+    return [q.subject, q.stage, q.kp, q.type, token].join('|');
   }
 
   /** 生成一份卷子后调用：整卷题目入库（已存在则累加出现次数） */
@@ -58,6 +61,9 @@
           opts: q.opts || null,
           answer: q.answer,
           analysis: q.analysis || '',
+          source: q.source === 'ai' ? 'ai' : 'local',
+          model: q.source === 'ai' ? String(q.model || '').slice(0, 160) : '',
+          generatedAt: q.source === 'ai' ? String(q.generatedAt || '').slice(0, 40) : '',
           seen: 1,
           wrong: 0,
           right: 0,

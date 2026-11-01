@@ -79,7 +79,9 @@
     difficulty: 'mix',
     diffMin: 2,
     diffMax: 4,
-    paperDiffLabel: '混合'
+    paperDiffLabel: '混合',
+    source: 'local',
+    aiController: null
   };
 
   /* ---------- 基础工具 ---------- */
@@ -87,7 +89,7 @@
     var s = Registry.SUBJECTS[state.subject];
     return s && s.stages[state.stage];
   }
-  function subjectName() { return Registry.SUBJECTS[state.subject].name; }
+  function subjectName(subject) { return Registry.SUBJECTS[subject || state.subject].name; }
   function gradeLabel(g) {
     if (g <= 6) return ['一', '二', '三', '四', '五', '六'][g - 1] + '年级';
     if (g <= 9) return ['七', '八', '九'][g - 7] + '年级';
@@ -202,7 +204,7 @@
       ch.kps.forEach(function (kid) {
         var kp = d.kpMap[kid];
         if (!kp) return;
-        var ok = supported.indexOf(kid) >= 0;
+        var ok = state.source === 'ai' || supported.indexOf(kid) >= 0;
         var label = document.createElement('label');
         label.className = 'kp-item' + (ok ? '' : ' pending');
         label.title = ok ? '' : '该知识点暂无生成器';
@@ -342,13 +344,83 @@
   }
 
   /* ---------- 生成 ---------- */
-  function buildPaper(seed) {
+  function renderSource() {
+    var ai = state.source === 'ai';
+    $('#modeAI').className = 'chip' + (ai ? ' on' : '');
+    $('#modeLocal').className = 'chip' + (ai ? '' : ' on');
+    $('#modeAI').setAttribute('aria-pressed', String(ai));
+    $('#modeLocal').setAttribute('aria-pressed', String(!ai));
+    $('#sourceHint').textContent = ai
+      ? '按所选知识点生成原创题，非最新真题；最多 40 题，分批调用并按你的接口计费。结构校验不代表答案正确，请核验后使用。'
+      : '本地模板随机出题，无需联网、不产生 API 费用。';
+    $('#btnBuild').textContent = ai ? 'AI 生成试卷' : '生成试卷';
+  }
+
+  function setSource(source) {
+    if (state.aiController) return;
+    state.source = source;
+    if (source === 'local') {
+      var supported = Generators.support(state.subject, state.stage) || [];
+      Object.keys(state.kps).forEach(function (kp) {
+        if (supported.indexOf(kp) < 0) delete state.kps[kp];
+      });
+    }
+    renderSource();
+    renderKpList();
+  }
+
+  function setAIBusy(busy) {
+    $('#conditionFields').disabled = busy;
+    ['btnBuild', 'btnShuffle', 'wbBuild', 'pwaUpdateApply'].forEach(function (id) {
+      $('#' + id).disabled = busy;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.ai-replace'), function (button) {
+      button.disabled = busy;
+    });
+    $('#aiProgress').hidden = !busy;
+    $('#paper').setAttribute('aria-busy', String(busy));
+    if (busy) $('#aiProgressText').textContent = '正在请求 AI；原试卷会保留至全部题目生成成功。';
+  }
+
+  function aiProgress(progress) {
+    $('#aiProgressText').textContent = 'AI 已完成 ' + progress.completed + ' / ' + progress.total +
+      ' 题，已发起 ' + progress.requests + ' 次请求；可取消，已发出的请求仍可能计费。';
+  }
+
+  function aiConfig() {
+    try { return KB.AI.validateConfig(KB.AISettings.read()); }
+    catch (_) { KB.AISettings.open(); return null; }
+  }
+
+  function aiExcludes() {
+    var saved = KB.WrongBook ? KB.WrongBook.all().slice(0, 160) : [];
+    return saved.concat(state.paper ? state.paper.questions : [])
+      .map(function (q) { return q.stem; })
+      .filter(function (stem) { return typeof stem === 'string' && stem.length <= 1200; })
+      .slice(-200);
+  }
+
+  function commitPaper(paper, label) {
+    state.paper = paper;
+    state.paperDiffLabel = label;
+    paper.meta.diffLabel = label;
+    paper.meta.source = paper.meta.source || 'local';
+    if (KB.WrongBook) {
+      var kpNames = {}, d = Registry.SUBJECTS[paper.subject].stages[paper.stage];
+      Object.keys(d.kpMap).forEach(function (kp) { kpNames[kp] = d.kpMap[kp].name; });
+      KB.WrongBook.recordPaper(paper, { kpNames: kpNames });
+      refreshWrongCount();
+    }
+    renderPaper();
+    renderMeta();
+  }
+
+  async function buildPaper(seed) {
+    if (state.aiController) return;
     var diff = diffSpec();
     var secs = state.sections.map(function (s, i) {
       var sec = {
-        type: s.type,
-        count: s.count,
-        score: s.score,
+        type: s.type, count: s.count, score: s.score,
         title: CN_NUM[i] + '、' + typeName(s.type) + '（每题 ' + s.score + ' 分，共 ' + s.count + ' 题）'
       };
       if (diff.diff) sec.diff = diff.diff;
@@ -356,35 +428,74 @@
       return sec;
     });
     if (!secs.length) { alert('至少设置一个大题'); return; }
-
     var bp = {
-      subject: state.subject,
-      stage: state.stage,
-      grade: state.grade,
-      term: state.term,
+      subject: state.subject, stage: state.stage, grade: state.grade, term: state.term,
       version: 'rjb',
       title: gradeLabel(state.grade) + (state.term === 2 ? '下册' : '上册') + ' · ' + subjectName() + '练习卷',
-      seed: seed,
-      sections: secs,
-      kps: Object.keys(state.kps)
+      seed: seed, sections: secs, kps: Object.keys(state.kps)
     };
-
-    state.paperDiffLabel = diff.label;
-    try {
-      state.paper = Paper.generatePaper(bp);
-    } catch (e) {
-      alert('生成失败：' + e.message);
+    if (state.source === 'local') {
+      try { commitPaper(Paper.generatePaper(bp), diff.label); }
+      catch (error) { alert('生成失败：' + error.message); }
       return;
     }
-    // 生成即入库：整卷题目写入错题本记录（去重，按题干指纹）
-    if (KB.WrongBook) {
-      var kpNames = {}, d = stageData();
-      Object.keys(d.kpMap).forEach(function (k) { kpNames[k] = d.kpMap[k].name; });
-      KB.WrongBook.recordPaper(state.paper, { kpNames: kpNames });
-      refreshWrongCount();
+    var config = aiConfig();
+    if (!config) return;
+    var controller = new AbortController();
+    state.aiController = controller;
+    setAIBusy(true);
+    try {
+      var paper = await KB.AI.generatePaper(bp, config, { signal: controller.signal, onProgress: aiProgress, excludeStems: aiExcludes() });
+      if (!controller.signal.aborted) commitPaper(paper, diff.label);
+    } catch (error) {
+      if (!controller.signal.aborted) alert('AI 生成失败，原试卷已保留。\n' + error.message);
+    } finally {
+      state.aiController = null;
+      setAIBusy(false);
     }
-    renderPaper();
-    renderMeta();
+  }
+
+  async function replaceAIQuestion(index) {
+    if (state.aiController || !state.paper) return;
+    var original = state.paper, old = original.questions[index];
+    if (!old) return;
+    var config = aiConfig();
+    if (!config) return;
+    var controller = new AbortController();
+    state.aiController = controller;
+    setAIBusy(true);
+    try {
+      var replacement = await KB.AI.generatePaper({
+        subject: old.subject, stage: old.stage, grade: old.grade, term: old.term,
+        version: original.version, title: original.title, kps: [old.kp],
+        sections: [{ type: old.type, count: 1, score: old.score, diff: [old.diff, old.diff], title: old.sectionTitle }]
+      }, config, { signal: controller.signal, onProgress: aiProgress, excludeStems: aiExcludes() });
+      if (controller.signal.aborted || state.paper !== original) return;
+      var next = replacement.questions[0];
+      var duplicate = original.questions.some(function (q, i) {
+        return i !== index && q.stem.replace(/\s+/g, '') === next.stem.replace(/\s+/g, '');
+      });
+      if (duplicate || old.stem.replace(/\s+/g, '') === next.stem.replace(/\s+/g, '')) {
+        throw new Error('新题与本卷已有题目重复，请重新生成。');
+      }
+      next.no = old.no;
+      next.sectionIndex = old.sectionIndex;
+      next.sectionTitle = old.sectionTitle;
+      original.questions[index] = next;
+      // 单题替换始终沿用题型/知识点/难度/分值，不改变试卷结构和统计。
+      commitPaper(original, state.paperDiffLabel);
+    } catch (error) {
+      if (!controller.signal.aborted) alert('换题失败，原题已保留。\n' + error.message);
+    } finally {
+      state.aiController = null;
+      setAIBusy(false);
+    }
+  }
+
+  function paperSource(paper) {
+    var aiCount = paper.questions.filter(function (q) { return q.source === 'ai'; }).length;
+    if (!aiCount) return '本地模板';
+    return (aiCount === paper.questions.length ? 'AI 原创' : '含 AI 原创 ' + aiCount + ' 题') + ' · 答案需核验';
   }
 
   /* ---------- 渲染：试卷 ---------- */
@@ -398,9 +509,10 @@
 
     var h = [];
     h.push('<h2 class="title">' + esc(p.title) + '</h2>');
-    h.push('<div class="subtitle">' + subjectName() + ' · ' + gradeLabel(p.grade) + ' · ' + (p.term === 2 ? '下册' : '上册') +
+    h.push('<div class="subtitle">' + subjectName(p.subject) + ' · ' + gradeLabel(p.grade) + ' · ' + (p.term === 2 ? '下册' : '上册') +
       ' · 难度 ' + esc(state.paperDiffLabel || '混合') +
       ' · 满分 ' + p.totalScore + ' 分 · 建议用时 ' + p.duration + ' 分钟</div>');
+    h.push('<div class="paper-source">来源：' + esc(paperSource(p)) + '</div>');
     h.push('<div class="fill-line"><span>姓名：______________</span><span>班级：______________</span>' +
       '<span>得分：______________</span></div>');
 
@@ -412,7 +524,7 @@
       }
       h.push('<div class="q"><span class="no">' + q.no + '.</span>' + M(q.stem) +
         '<span class="score">（' + q.score + ' 分）</span>' +
-        (state.showKp ? '<span class="kp-tag">' + esc(kpName(q.kp)) + '</span>' : ''));
+        (state.showKp ? '<span class="kp-tag">' + esc(kpName(q.kp, q.subject, q.stage)) + '</span>' : ''));
       if (q.opts && q.opts.length) {
         h.push('<div class="opts">' + q.opts.map(function (o) { return '<span>' + M(o) + '</span>'; }).join('') + '</div>');
       }
@@ -425,6 +537,7 @@
         var rec = wbIdx[wk];
         var ek = encodeURIComponent(wk);
         h.push('<span class="q-act">' +
+          (q.source === 'ai' ? '<button class="mini ai-replace" data-ai-index="' + (q.no - 1) + '" title="使用当前 API 重新生成这一题，会产生调用费用">AI 换题</button>' : '') +
           '<button class="act wrong' + (rec && rec.result === 'wrong' ? ' on' : '') + '" data-k="' + ek + '" title="记为错题">✗</button>' +
           '<button class="act ok' + (rec && rec.result === 'right' ? ' on' : '') + '" data-k="' + ek + '" title="标记已掌握">✓</button>' +
           '</span>');
@@ -455,8 +568,8 @@
     el.innerHTML = buildPaperHTML('web');
   }
 
-  function kpName(id) {
-    var d = stageData();
+  function kpName(id, subject, stage) {
+    var d = Registry.SUBJECTS[subject || state.subject].stages[stage || state.stage];
     return d.kpMap[id] ? d.kpMap[id].name : id;
   }
 
@@ -472,6 +585,7 @@
     bar.innerHTML =
       '<span>题量 <b>' + p.questions.length + '</b></span>' +
       '<span>总分 <b>' + p.totalScore + '</b></span>' +
+      '<span class="source-badge">' + esc(paperSource(p)) + '</span>' +
       '<span>知识点 <b>' + p.meta.kpCount + '</b></span>' +
       '<span>难度 <b>' + esc(state.paperDiffLabel || '混合') + '</b> ' + chips.join(' ') + '</span>' +
       (p.meta.requested !== p.questions.length ? '<span style="color:#c2410c">⚠ 计划 ' + p.meta.requested + ' 题，实际生成 ' + p.questions.length + ' 题</span>' : '');
@@ -486,7 +600,7 @@
     if (!state.paper) return alert('先生成一份试卷');
     var css = 'body{font-family:"宋体",serif;font-size:12pt;line-height:1.9}' +
       'h2.title{text-align:center;font-size:16pt}' +
-      '.subtitle{text-align:center;font-size:9pt;color:#666}' +
+      '.subtitle,.paper-source{text-align:center;font-size:9pt;color:#666}' +
       '.fill-line{text-align:center;font-size:10pt;margin:10pt 0}' +
       '.section-title{font-weight:bold;margin:12pt 0 6pt}' +
       '.q{margin:0 0 8pt}' +
@@ -516,6 +630,7 @@
     if (!state.paper) return alert('先生成一份试卷');
     var p = state.paper, lines = [];
     lines.push(p.title);
+    lines.push('来源：' + paperSource(p));
     lines.push('（满分 ' + p.totalScore + ' 分，建议用时 ' + p.duration + ' 分钟）');
     lines.push('');
     var lastSection = -1;
@@ -573,7 +688,7 @@
       var supported = Generators.support(state.subject, state.stage) || [];
       var d = stageData();
       Object.keys(d.kpMap).forEach(function (kid) {
-        if (supported.indexOf(kid) >= 0) state.kps[kid] = true;
+        if (state.source === 'ai' || supported.indexOf(kid) >= 0) state.kps[kid] = true;
       });
       renderKpList();
     };
@@ -584,6 +699,12 @@
       renderSections();
     };
 
+    $('#modeLocal').onclick = function () { setSource('local'); };
+    $('#modeAI').onclick = function () { setSource('ai'); };
+    $('#btnAISettings').onclick = KB.AISettings.open;
+    $('#btnAICancel').onclick = function () {
+      if (state.aiController) state.aiController.abort();
+    };
     $('#btnBuild').onclick = function () { buildPaper(); };
     $('#btnShuffle').onclick = function () { buildPaper(); };
     $('#chkAnswer').onchange = function (e) { state.showAnswer = e.target.checked; renderPaper(); };
@@ -617,6 +738,8 @@
       refreshWrongCount(); renderWrong();
     });
     $('#paper').addEventListener('click', function (e) {
+      var replacement = e.target.closest ? e.target.closest('.ai-replace') : null;
+      if (replacement) { replaceAIQuestion(Number(replacement.getAttribute('data-ai-index'))); return; }
       var b = e.target.closest ? e.target.closest('.act') : null;
       if (!b) return;
       var k = decodeURIComponent(b.getAttribute('data-k'));
@@ -682,6 +805,7 @@
         (it.opts ? '<div class="wb-ops">' + it.opts.map(function (o) { return '<span class="mini">' + KB.MathRender.html(o) + '</span>'; }).join('') + '</div>' : '') +
         '<div class="wb-meta">' +
         '<span>' + esc(it.kpName || it.kp) + '</span>' +
+        '<span>' + (it.source === 'ai' ? 'AI 原创 · 答案需核验' : '本地模板') + '</span>' +
         '<span>出现 ' + it.seen + ' 次</span>' +
         (it.wrong ? '<span>错 <b>' + it.wrong + '</b></span>' : '') +
         (it.result === 'right' ? '<span style="color:#0e6b5c">已掌握</span>' : '') +
@@ -692,6 +816,7 @@
   }
 
   function buildFromWeak() {
+    if (state.aiController) return;
     var weak = KB.WrongBook.weakKps();
     if (!weak.length) { alert('还没有错题。先在试卷上点 ✗ 标记几道错题。'); return; }
     var top = weak[0];
@@ -713,7 +838,7 @@
 
   /* ---------- 启动 ---------- */
   function renderAll() {
-    renderSubjects(); renderStages(); renderGrades(); renderDiff(); renderKpList(); renderSections();
+    renderSource(); renderSubjects(); renderStages(); renderGrades(); renderDiff(); renderKpList(); renderSections();
   }
 
   // 支持通过 URL 预选：index.html?subject=physics&stage=junior&grade=8&term=1
