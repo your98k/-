@@ -16,6 +16,30 @@
     english: ['choice', 'fill', 'cloze', 'translation']
   };
 
+  var DIFF_OPTIONS = [
+    { id: 'mix', name: '混合' },
+    { id: 'basic', name: '基础' },
+    { id: 'medium', name: '中等' },
+    { id: 'advanced', name: '提高' },
+    { id: 'custom', name: '自定义' }
+  ];
+  var DIFF_NAMES = ['易', '较易', '中', '较难', '难'];
+
+  /* 各题型答题留白：竖式计算必须留出列竖式的位置 */
+  var WS_MAP = {
+    vertical: ['ws-vertical', '竖式'],
+    calc: ['ws-calc', '计算'],
+    simple: ['ws-calc', '简算'],
+    equation: ['ws-calc', '解方程'],
+    error: ['ws-calc', '改正'],
+    app: ['ws-app', '解答'],
+    solve: ['ws-app', '解答'],
+    proof: ['ws-proof', '证明'],
+    experiment: ['ws-proof', '实验'],
+    short: ['ws-short', '作答'],
+    translation: ['ws-short', '翻译']
+  };
+
   var PRESET = {
     primary: [
       { type: 'oral', count: 10, score: 2 },
@@ -51,7 +75,11 @@
     sections: [],
     paper: null,
     showAnswer: true,
-    showKp: false
+    showKp: false,
+    difficulty: 'mix',
+    diffMin: 2,
+    diffMax: 4,
+    paperDiffLabel: '混合'
   };
 
   /* ---------- 基础工具 ---------- */
@@ -201,6 +229,82 @@
     $('#kpCount').textContent = n ? '已选 ' + n + ' 个' : '未选（用本年级全部）';
   }
 
+  /* ---------- 难度 ---------- */
+  function diffSpec() {
+    var a = Math.max(1, Math.min(5, Number(state.diffMin) || 1));
+    var b = Math.max(1, Math.min(5, Number(state.diffMax) || 5));
+    if (a > b) { var t = a; a = b; b = t; }
+
+    if (state.difficulty === 'basic') return { diff: [1, 2], label: '基础（易—较易）' };
+    if (state.difficulty === 'medium') return { diff: [3, 3], label: '中等' };
+    if (state.difficulty === 'advanced') return { diff: [4, 5], label: '提高（较难—难）' };
+    if (state.difficulty === 'custom') {
+      return { diff: [a, b], label: '自定义（' + DIFF_NAMES[a - 1] + '—' + DIFF_NAMES[b - 1] + '）' };
+    }
+    return { diffMix: KB.Paper.DEFAULT_MIX, label: '混合' };
+  }
+
+  function renderDiff() {
+    var box = $('#diffChips');
+    if (!box) return;
+    box.innerHTML = '';
+    DIFF_OPTIONS.forEach(function (d) {
+      var b = document.createElement('button');
+      b.className = 'chip' + (state.difficulty === d.id ? ' on' : '');
+      b.textContent = d.name;
+      b.onclick = function () {
+        state.difficulty = d.id;
+        renderDiff();
+      };
+      box.appendChild(b);
+    });
+
+    var row = $('#diffCustomRow');
+    var isCustom = state.difficulty === 'custom';
+    row.style.display = isCustom ? 'flex' : 'none';
+
+    var min = $('#diffMin'), max = $('#diffMax');
+    if (min.options.length === 0) {
+      DIFF_NAMES.forEach(function (name, i) {
+        var o1 = document.createElement('option');
+        o1.value = String(i + 1);
+        o1.textContent = name;
+        min.appendChild(o1);
+        var o2 = document.createElement('option');
+        o2.value = String(i + 1);
+        o2.textContent = name;
+        max.appendChild(o2);
+      });
+      min.onchange = function () {
+        state.diffMin = Number(min.value);
+        if (state.diffMin > state.diffMax) {
+          state.diffMax = state.diffMin;
+          max.value = String(state.diffMax);
+        }
+        renderDiff();
+      };
+      max.onchange = function () {
+        state.diffMax = Number(max.value);
+        if (state.diffMax < state.diffMin) {
+          state.diffMin = state.diffMax;
+          min.value = String(state.diffMin);
+        }
+        renderDiff();
+      };
+    }
+    min.value = String(state.diffMin);
+    max.value = String(state.diffMax);
+
+    var spec = diffSpec();
+    if (isCustom) {
+      $('#diffHint').textContent = '当前：' + spec.label + ' · 1 易 — 5 难';
+    } else if (state.difficulty === 'mix') {
+      $('#diffHint').textContent = '当前：混合 · 易25% / 较易35% / 中25% / 较难10% / 难5%';
+    } else {
+      $('#diffHint').textContent = '当前：' + spec.label;
+    }
+  }
+
   /* ---------- 渲染：大题编辑 ---------- */
   function renderSections() {
     var box = $('#sectionEditor'); box.innerHTML = '';
@@ -239,13 +343,17 @@
 
   /* ---------- 生成 ---------- */
   function buildPaper(seed) {
+    var diff = diffSpec();
     var secs = state.sections.map(function (s, i) {
-      return {
+      var sec = {
         type: s.type,
         count: s.count,
         score: s.score,
         title: CN_NUM[i] + '、' + typeName(s.type) + '（每题 ' + s.score + ' 分，共 ' + s.count + ' 题）'
       };
+      if (diff.diff) sec.diff = diff.diff;
+      else sec.diffMix = diff.diffMix;
+      return sec;
     });
     if (!secs.length) { alert('至少设置一个大题'); return; }
 
@@ -261,6 +369,7 @@
       kps: Object.keys(state.kps)
     };
 
+    state.paperDiffLabel = diff.label;
     try {
       state.paper = Paper.generatePaper(bp);
     } catch (e) {
@@ -290,6 +399,7 @@
     var h = [];
     h.push('<h2 class="title">' + esc(p.title) + '</h2>');
     h.push('<div class="subtitle">' + subjectName() + ' · ' + gradeLabel(p.grade) + ' · ' + (p.term === 2 ? '下册' : '上册') +
+      ' · 难度 ' + esc(state.paperDiffLabel || '混合') +
       ' · 满分 ' + p.totalScore + ' 分 · 建议用时 ' + p.duration + ' 分钟</div>');
     h.push('<div class="fill-line"><span>姓名：______________</span><span>班级：______________</span>' +
       '<span>得分：______________</span></div>');
@@ -306,8 +416,9 @@
       if (q.opts && q.opts.length) {
         h.push('<div class="opts">' + q.opts.map(function (o) { return '<span>' + M(o) + '</span>'; }).join('') + '</div>');
       }
-      if (q.type === 'app' || q.type === 'solve' || q.type === 'calc' || q.type === 'proof' || q.type === 'experiment') {
-        h.push('<div class="ws"></div>');
+      var ws = WS_MAP[q.type];
+      if (ws) {
+        h.push('<div class="ws ' + ws[0] + '" data-label="' + ws[1] + '"></div>');
       }
       if (mode === 'web' && KB.WrongBook) {
         var wk = KB.WrongBook.keyOf(q);
@@ -362,7 +473,7 @@
       '<span>题量 <b>' + p.questions.length + '</b></span>' +
       '<span>总分 <b>' + p.totalScore + '</b></span>' +
       '<span>知识点 <b>' + p.meta.kpCount + '</b></span>' +
-      '<span>难度 ' + chips.join(' ') + '</span>' +
+      '<span>难度 <b>' + esc(state.paperDiffLabel || '混合') + '</b> ' + chips.join(' ') + '</span>' +
       (p.meta.requested !== p.questions.length ? '<span style="color:#c2410c">⚠ 计划 ' + p.meta.requested + ' 题，实际生成 ' + p.questions.length + ' 题</span>' : '');
   }
 
@@ -379,6 +490,11 @@
       '.fill-line{text-align:center;font-size:10pt;margin:10pt 0}' +
       '.section-title{font-weight:bold;margin:12pt 0 6pt}' +
       '.q{margin:0 0 8pt}' +
+      '.q .ws{height:80pt;border:1px dashed #999;margin:4pt 0}' +
+      '.q .ws-vertical{height:110pt}' +
+      '.q .ws-app{height:120pt}' +
+      '.q .ws-proof{height:130pt}' +
+      '.q .ws-short{height:100pt}' +
       '.opts span{display:inline-block;min-width:120pt}' +
       '.q .kp-tag{color:#0e6b5c;font-size:8pt}' +
       '.answers{page-break-before:always;border-top:1pt solid #000;padding-top:8pt}' +
@@ -594,7 +710,7 @@
 
   /* ---------- 启动 ---------- */
   function renderAll() {
-    renderSubjects(); renderStages(); renderGrades(); renderKpList(); renderSections();
+    renderSubjects(); renderStages(); renderGrades(); renderDiff(); renderKpList(); renderSections();
   }
 
   // 支持通过 URL 预选：index.html?subject=physics&stage=junior&grade=8&term=1
@@ -621,6 +737,5 @@
 
   window.__KB_STATE__ = state;
 })();
-
 
 
