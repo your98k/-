@@ -175,30 +175,30 @@ body{
   font-size: 10px;
   color: #b0bcc4;
 }
-/* 竖式：两列、横向每 48px 一条辅助线，给列竖式留足位置 */
+/* 竖式：两列、横向每 44px 一条辅助线，给列竖式留足位置 */
 .q .ws-vertical {
-  height: 150px;
+  height: 220px;
   background-image:
     linear-gradient(to right, #eef3f1 1px, transparent 1px),
-    repeating-linear-gradient(to bottom, transparent 0 48px, #eef3f1 48px 49px);
+    repeating-linear-gradient(to bottom, transparent 0 44px, #eef3f1 44px 45px);
   background-size: 50% 100%, 100% 100%;
 }
-/* 脱式 / 解方程 / 简算：三行左右 */
+/* 脱式 / 解方程 / 简算：三到四行 */
 .q .ws-calc {
-  height: 112px;
+  height: 130px;
   background-image: repeating-linear-gradient(to bottom, transparent 0 35px, #f1f5f3 35px 36px);
 }
-/* 应用题 / 解答题：四到五行 */
+/* 应用题 / 解答题：五到六行 */
 .q .ws-app {
-  height: 160px;
+  height: 170px;
   background-image: repeating-linear-gradient(to bottom, transparent 0 31px, #f1f5f3 31px 32px);
 }
 .q .ws-proof {
-  height: 180px;
+  height: 200px;
   background-image: repeating-linear-gradient(to bottom, transparent 0 31px, #f1f5f3 31px 32px);
 }
 .q .ws-short {
-  height: 130px;
+  height: 140px;
   background-image: repeating-linear-gradient(to bottom, transparent 0 31px, #f1f5f3 31px 32px);
 }
 
