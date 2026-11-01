@@ -4,7 +4,7 @@
  * 修改静态文件后把 VERSION 加一，用户下次打开会自动更新。
  * ======================================================= */
 
-const VERSION = 'mathbank-v3';
+const VERSION = 'mathbank-v4';
 const CORE = [
   './',
   './index.html',
