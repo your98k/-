@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-workspace="setup">
 <div class="ios-install" id="iosInstall">
   <b>安装到主屏幕：</b>点底部分享按钮 → 「添加到主屏幕」，以后像 App 一样打开
   <button id="iosInstallClose" type="button" aria-label="关闭">×</button>
@@ -48,8 +48,16 @@
   <button class="mini" id="pwaUpdateApply" type="button">刷新更新</button>
 </div>
 
+<div class="ai-progress no-print" id="aiProgress" role="status" aria-live="polite" hidden>
+  <span id="aiProgressText"></span>
+  <button class="mini" id="btnAICancel" type="button">取消生成</button>
+</div>
+<nav class="workspace-nav no-print" aria-label="工作区切换">
+  <button class="on" type="button" data-workspace-pane="setup" aria-pressed="true">出题设置</button>
+  <button type="button" data-workspace-pane="preview" aria-pressed="false">试卷预览</button>
+</nav>
 <div class="workspace">
-<aside class="sidebar no-print">
+<aside class="sidebar no-print" id="setupPanel" aria-label="出题设置">
   <fieldset id="conditionFields" class="condition-fields">
     <section class="card">
       <div class="card-head">
@@ -73,13 +81,13 @@
         <label class="check"><input id="chkCross" type="checkbox">跨年级混选</label>
       </div>
       <div class="grid-3" id="stageChips"></div>
-      <div class="grid-2" style="margin-top:8px">
+      <div class="grade-term-grid">
         <div>
-          <div class="kicker" style="margin-bottom:6px">年级滚轮</div>
-          <div id="gradeWheel" aria-label="选择年级"></div>
+          <div class="kicker" id="gradeLabel">年级</div>
+          <div id="gradeButtons" class="grade-buttons" role="group" aria-labelledby="gradeLabel"></div>
         </div>
         <label class="field">学期
-          <select id="termSel" class="sel" style="margin-top:6px;padding-left:10px" aria-label="选择学期">
+          <select id="termSel" class="sel" aria-label="选择学期">
             <option value="1">上学期</option>
             <option value="2">下学期</option>
             <option value="0">全学年</option>
@@ -112,14 +120,14 @@
 
     <section class="card">
       <div class="card-head">
-        <h2 class="kicker">4. 知识点</h2>
+        <h2 class="kicker" id="kpTitle">4. 知识点</h2>
         <span class="meter">
           <svg class="ring" viewBox="0 0 36 36" aria-hidden="true"><circle class="ring-bg" cx="18" cy="18" r="15"></circle><circle class="ring-fg" id="kpRing" cx="18" cy="18" r="15"></circle></svg>
           <span class="roll" id="kpRoll"></span>
         </span>
       </div>
       <p class="note" id="kpCount" style="margin-top:0">未选（用本年级全部）</p>
-      <div id="chapterRail"></div>
+      <div id="chapterRail" class="course-context"></div>
       <div class="tools" style="margin:8px 0">
         <div class="search">
           <span class="mag">搜</span>
@@ -129,7 +137,7 @@
         <button class="mini" id="kpAll" type="button">全选</button>
         <button class="mini" id="kpNone" type="button">清空</button>
       </div>
-      <div class="kp-tree" id="kpList"></div>
+      <div class="kp-tree" id="kpList" role="group" aria-labelledby="kpTitle"></div>
     </section>
 
     <section class="card">
@@ -155,7 +163,7 @@
   </fieldset>
 </aside>
 
-<main class="main" id="mainPreview">
+<main class="main" id="mainPreview" tabindex="-1" aria-label="试卷预览">
   <section class="card no-print">
     <div class="split">
       <div class="mode-bar" id="modeBar">
@@ -173,14 +181,11 @@
     <div class="toggle-row">
       <label class="check"><input id="chkAnswer" type="checkbox" checked>显示答案与解析</label>
       <label class="check"><input id="chkKpTag" type="checkbox">标注考点与难度</label>
-      <label class="check"><input id="chkSeal" type="checkbox" checked>密封线与得分栏</label>
+      <label class="check"><input id="chkWorkspace" type="checkbox">预览答题留白</label>
+      <label class="check"><input id="chkSeal" type="checkbox">密封线与得分栏</label>
       <label class="check"><input id="chkDarkPaper" type="checkbox">深色护眼卷面</label>
     </div>
     <div class="stat-row" id="metaBar"></div>
-    <div class="ai-progress" id="aiProgress" hidden>
-      <span id="aiProgressText"></span>
-      <button class="mini" id="btnAICancel" type="button">取消生成</button>
-    </div>
   </section>
 
   <div id="viewHost">

@@ -62,14 +62,14 @@
   var state = {
     subject: 'math', stage: 'junior', grade: 8, term: 1, crossGrade: false,
     kps: {}, collapsed: {}, kpSearch: '', sections: [], paper: null,
-    showAnswer: true, showKp: false, showSeal: true, darkPaper: false,
+    showAnswer: true, showKp: false, showSeal: false, showWorkspace: false, darkPaper: false,
+    workspacePane: 'setup',
     difficulty: 'mix', diffMin: 2, diffMax: 4, customKind: 'range',
     weights: [20, 30, 30, 15, 5], source: 'local', aiController: null,
     mode: 'paper', theme: 'dark', wbTab: 'wrong', stackOpen: false,
     exam: blankExam(45), editing: -1, studioKp: ''
   };
   var rollApi = null;
-  var wheelApi = null;
 
   function blankExam(mins) {
     return { left: (mins || 45) * 60, running: false, timer: null, answers: {}, self: {}, submitted: false, pen: '#10b981', scratch: false, report: null };
@@ -155,12 +155,21 @@
   function defaultKps() {
     var ids = [];
     chapterPool().forEach(function (ch) {
-      ch.topics.forEach(function (topic) { if (selectableId(topic.id)) ids.push(topic.id); });
+      ch.topics.forEach(function (topic) {
+        if (selectableId(topic.id) && ids.indexOf(topic.id) < 0) ids.push(topic.id);
+      });
     });
     return ids;
   }
+  function pruneKps() {
+    var allowed = defaultKps();
+    Object.keys(state.kps).forEach(function (id) {
+      if (allowed.indexOf(id) < 0) delete state.kps[id];
+    });
+  }
   function chosenKps() {
-    var ids = Object.keys(state.kps).filter(selectableId);
+    pruneKps();
+    var ids = Object.keys(state.kps);
     return ids.length ? ids : defaultKps();
   }
 
@@ -182,6 +191,29 @@
     var hint = $('#subjectHint');
     if (hint) hint.textContent = t.icon + ' ' + t.hint;
     try { localStorage.setItem('kb.theme.v1', state.theme); } catch (e) { /* 隐私模式忽略 */ }
+  }
+
+  function resetCourseFilters() {
+    state.kps = {};
+    state.collapsed = {};
+    state.kpSearch = '';
+    $('#kpSearch').value = '';
+    $('#kpSearchClear').hidden = true;
+  }
+
+  function setWorkspacePane(pane, scroll) {
+    state.workspacePane = pane === 'preview' ? 'preview' : 'setup';
+    document.body.dataset.workspace = state.workspacePane;
+    $$('[data-workspace-pane]').forEach(function (button) {
+      var active = button.getAttribute('data-workspace-pane') === state.workspacePane;
+      button.classList.toggle('on', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    $('#btnJumpPaper').textContent = state.workspacePane === 'preview' ? '改条件' : '看试卷';
+    if (scroll && window.matchMedia('(max-width: 1023px)').matches) {
+      var target = state.workspacePane === 'preview' ? $('#mainPreview') : $('.workspace-nav');
+      target.scrollIntoView({ block: 'start', behavior: Motion.reduced() ? 'auto' : 'smooth' });
+    }
   }
 
   function renderSource() {
@@ -222,7 +254,7 @@
         state.stage = st;
         state.grade = firstGrade(st);
         state.term = 1;
-        state.kps = {};
+        resetCourseFilters();
         state.sections = clonePreset();
         renderAll();
       });
@@ -233,19 +265,28 @@
     var grades = gradeNumbers();
     if (grades.indexOf(state.grade) < 0) state.grade = grades[0] || 7;
     $('#termSel').value = String(state.term);
-    var host = $('#gradeWheel');
+    var host = $('#gradeButtons');
     host.innerHTML = '';
-    wheelApi = Motion.wheel(host, {
-      items: grades.map(function (g) { return { value: g, label: A.gradeLabel(g) }; }),
-      value: state.grade,
-      onChange: function (g) {
-        if (state.aiController) return;
-        if (Number(g) === Number(state.grade)) return;
-        state.grade = Number(g);
-        state.kps = {};
+    grades.forEach(function (grade) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip' + (grade === state.grade ? ' on' : '');
+      button.setAttribute('data-grade', String(grade));
+      button.setAttribute('aria-pressed', String(grade === state.grade));
+      button.textContent = A.gradeLabel(grade);
+      button.addEventListener('click', function () {
+        if (state.aiController || grade === state.grade) return;
+        state.grade = grade;
+        resetCourseFilters();
+        $$('#gradeButtons button').forEach(function (choice) {
+          var selected = Number(choice.getAttribute('data-grade')) === grade;
+          choice.classList.toggle('on', selected);
+          choice.setAttribute('aria-pressed', String(selected));
+        });
         renderRail();
         renderKp();
-      }
+      });
+      host.appendChild(button);
     });
   }
 
@@ -325,21 +366,9 @@
   }
 
   function renderRail() {
-    var cards = railPool().map(function (ch) {
-      return { id: ch.id, title: ch.title, kicker: A.gradeLabel(ch.grade) + ' · ' + A.termLabel(ch.term) };
-    });
-    Motion.snapRail($('#chapterRail'), {
-      cards: cards,
-      onSettle: function (_index, card) {
-        if (!card) return;
-        state.collapsed[card.id] = false;
-        renderKp();
-        var node = document.getElementById('ch-' + card.id);
-        if (node && node.scrollIntoView) {
-          node.scrollIntoView({ block: 'nearest', behavior: Motion.reduced() ? 'auto' : 'smooth' });
-        }
-      }
-    });
+    var count = chapterPool().length;
+    $('#chapterRail').textContent = (state.crossGrade ? '当前学段 · 跨年级' :
+      A.gradeLabel(state.grade) + ' · ' + A.termLabel(state.term)) + ' · ' + count + ' 个章节';
   }
 
   function updateMeter() {
@@ -359,10 +388,32 @@
   }
   function renderKp() {
     var box = $('#kpList');
+    var scrollTop = box.scrollTop;
+    pruneKps();
     box.innerHTML = '';
-    var list = A.searchChapters(chapterPool(), state.kpSearch);
+    var pool = chapterPool();
+    var list = A.searchChapters(pool, state.kpSearch);
     if (!list.length) {
-      box.innerHTML = '<div class="empty">没有匹配的章节</div>';
+      var empty = document.createElement('div');
+      empty.className = 'kp-empty';
+      var message = document.createElement('p');
+      message.textContent = pool.length ? '没有匹配的知识点，试试换一个搜索词。' :
+        A.gradeLabel(state.grade) + A.termLabel(state.term) + '暂未收录课程，不会跨年级出题。';
+      empty.appendChild(message);
+      var action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'mini';
+      action.textContent = pool.length ? '清除搜索' : '查看本年级全学年';
+      action.addEventListener('click', function () {
+        if (!pool.length) { state.term = 0; renderGrades(); }
+        state.kpSearch = '';
+        $('#kpSearch').value = '';
+        $('#kpSearchClear').hidden = true;
+        renderRail();
+        renderKp();
+      });
+      empty.appendChild(action);
+      box.appendChild(empty);
       updateMeter();
       return;
     }
@@ -374,12 +425,16 @@
       title.className = 'kp-ch-title';
       var toggle = document.createElement('button');
       toggle.type = 'button';
-      toggle.textContent = (state.collapsed[ch.id] ? '▸ ' : '▾ ') + ch.title;
+      var collapsed = !!state.collapsed[ch.id] && !state.kpSearch.trim();
+      toggle.textContent = (collapsed ? '▸ ' : '▾ ') + ch.title;
+      toggle.setAttribute('aria-expanded', String(!collapsed));
       var allOn = ch.topics.filter(function (t) { return selectableId(t.id); })
         .every(function (t) { return state.kps[t.id]; });
       var boxInput = document.createElement('input');
       boxInput.type = 'checkbox';
       boxInput.checked = allOn && ch.topics.some(function (t) { return selectableId(t.id); });
+      boxInput.disabled = !ch.topics.some(function (t) { return selectableId(t.id); });
+      boxInput.setAttribute('aria-label', '选择章节：' + ch.title);
       boxInput.addEventListener('change', function () {
         ch.topics.forEach(function (t) {
           if (!selectableId(t.id)) return;
@@ -395,7 +450,7 @@
       title.appendChild(boxInput);
       title.appendChild(toggle);
       wrap.appendChild(title);
-      if (!state.collapsed[ch.id]) {
+      if (!collapsed) {
         ch.topics.forEach(function (topic) {
           var ok = selectableId(topic.id);
           var label = document.createElement('label');
@@ -416,6 +471,7 @@
       }
       box.appendChild(wrap);
     });
+    box.scrollTop = scrollTop;
     updateMeter();
   }
 
@@ -487,12 +543,13 @@
   }
 
   function setSubject(id) {
+    if (state.aiController) return;
     state.subject = id;
     var stages = stageList(id);
     if (stages.indexOf(state.stage) < 0) state.stage = stages[0];
-    state.grade = firstGrade(state.stage);
+    if (gradeNumbers().indexOf(state.grade) < 0) state.grade = firstGrade(state.stage);
     state.term = 1;
-    state.kps = {};
+    resetCourseFilters();
     state.sections = clonePreset();
     renderAll();
   }
@@ -504,10 +561,13 @@
       Object.keys(state.kps).forEach(function (id) { if (ok.indexOf(id) < 0) delete state.kps[id]; });
     }
     renderSource();
+    pruneKps();
+    renderRail();
     renderKp();
   }
 
   function renderAll() {
+    setWorkspacePane(state.workspacePane, false);
     applyTheme();
     renderSource();
     renderSubjects();
@@ -550,7 +610,10 @@
       var el = $('#' + id);
       if (el) el.disabled = busy;
     });
-    $$('.ai-replace').forEach(function (button) { button.disabled = busy; });
+    $$('.q-tools button, #studioOut button').forEach(function (button) { button.disabled = busy; });
+    $('#studioRun').disabled = busy;
+    var title = $('#paperTitle');
+    if (title) title.contentEditable = busy ? 'false' : 'true';
     $('#aiProgress').hidden = !busy;
     if (busy) $('#aiProgressText').textContent = '正在请求 AI；原试卷会保留到整卷生成成功。';
   }
@@ -637,6 +700,7 @@
         paper.meta.source = 'local';
         paper.meta.diverged = false;
         commitPaper(paper, diff.label);
+        if (!opts.quiet) setWorkspacePane('preview', true);
         if (opts.celebrate) Motion.celebrate(opts.button || $('#btnBuild'));
         else if (!opts.quiet) toastPaper(diff.label);
       } catch (error) { toast('生成失败：' + error.message, 'rose'); }
@@ -665,6 +729,7 @@
       });
       if (!controller.signal.aborted) {
         commitPaper(aiPaper, diff.label);
+        setWorkspacePane('preview', true);
         if (opts.celebrate) Motion.celebrate(opts.button || $('#btnBuild'));
       }
     } catch (error) {
@@ -782,6 +847,7 @@
     };
   }
   function insertQuestions(list) {
+    if (state.aiController) return;
     ensurePaper();
     var si = state.paper.questions.reduce(function (m, q) { return Math.max(m, q.sectionIndex || 0); }, -1) + 1;
     list.forEach(function (q) {
@@ -812,7 +878,7 @@
   }
 
   function toolButton(label, act, index, extra) {
-    return '<button type="button" data-act="' + act + '" data-i="' + index + '"' + (extra || '') + '>' + label + '</button>';
+    return '<button type="button" data-act="' + act + '" data-i="' + index + '"' + (state.aiController ? ' disabled' : '') + (extra || '') + '>' + label + '</button>';
   }
   function renderPaper() {
     var host = $('#viewPaper');
@@ -825,10 +891,10 @@
     var wb = {};
     if (KB.WrongBook) KB.WrongBook.all().forEach(function (it) { wb[it.key] = it; });
     var groups = groupsOf(p);
-    var head = '<div class="a4' + (state.darkPaper ? ' paper-dark' : '') + '" id="printableArea"><div class="seal"' +
+    var head = '<div class="a4' + (state.darkPaper ? ' paper-dark' : '') + (state.showWorkspace ? ' show-workspace' : '') + '" id="printableArea"><div class="seal"' +
       (state.showSeal ? '' : ' hidden') + '><span>学校________ 班级________ 姓名________ 考号________</span>' +
       '<span>密封线内不要答题</span></div><div class="paper-body">';
-    head += '<p class="paper-tip note no-print">点击标题可改卷名。悬停题目可换题、变式、编辑或调整顺序。</p>';
+    head += '<p class="paper-tip note no-print">点击标题可改卷名；每题的「题目操作」支持换题、编辑与标记错题。打印仍保留答题空间。</p>';
     head += '<h2 class="paper-title serif" id="paperTitle" contenteditable="true" spellcheck="false">' + esc(p.title) + '</h2>';
     head += '<p class="paper-sub">' + esc(Registry.SUBJECTS[p.subject].name) + ' · ' + esc(A.gradeLabel(p.grade)) + ' · ' +
       esc(p.term === 2 ? '下册' : '上册') + ' · 难度 ' + esc(p.meta.diffLabel || '混合') + ' · 满分 ' + p.totalScore +
@@ -859,7 +925,9 @@
         }
         var ws = WS_MAP[q.type];
         if (ws) head += '<div class="ws ' + ws[0] + '" data-label="' + ws[1] + '"></div>';
-        head += '<div class="q-tools no-print">';
+        head += '<details class="q-actions no-print"><summary>题目操作' +
+          (rec && rec.result === 'wrong' ? ' · 已记错题' : rec && rec.result === 'right' ? ' · 已掌握' : '') +
+          '</summary><div class="q-tools">';
         head += toolButton('换同考点', 'swap', index);
         head += toolButton('变式', 'variant', index);
         if (q.source === 'ai') head += toolButton('AI 换题', 'ai', index, ' class="ai-replace"');
@@ -868,7 +936,7 @@
         head += toolButton('下移', 'down', index);
         head += toolButton('错题', 'wrong', index, ' class="danger' + (rec && rec.result === 'wrong' ? ' on' : '') + '"');
         head += toolButton('掌握', 'right', index, ' class="ok' + (rec && rec.result === 'right' ? ' on' : '') + '"');
-        head += '</div></div></div></article>';
+        head += '</div></details></div></div></article>';
       });
     });
     if (state.showAnswer) {
@@ -1132,7 +1200,7 @@
       el.classList.toggle('is-active', on);
     });
     renderMode();
-    Motion.reveal($('#viewHost'), x, y);
+    // 不对整张长试卷做圆形裁切动画，避免移动 WebKit 出现闪白和大面积重绘。
   }
 
   function exportWord() {
@@ -1151,7 +1219,10 @@
     });
     if (state.showAnswer) {
       html += '<h3>参考答案</h3>';
-      p.questions.forEach(function (q) { html += '<p>' + q.no + '. ' + M(q.answer) + '</p>'; });
+      p.questions.forEach(function (q) {
+        html += '<p>' + q.no + '. ' + M(q.answer) + '</p>';
+        if (q.analysis) html += '<p>解析：' + M(q.analysis).replace(/\n/g, '<br>') + '</p>';
+      });
     }
     var doc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body>' + html + '</body></html>';
     var blob = new Blob(['\ufeff' + doc], { type: 'application/msword' });
@@ -1167,11 +1238,15 @@
     var last = null;
     p.questions.forEach(function (q) {
       if (q.sectionIndex !== last) { last = q.sectionIndex; lines.push(q.sectionTitle || ''); }
-      lines.push(q.no + '. ' + KB.MathRender.plain(q.stem));
+      lines.push(q.no + '. ' + KB.MathRender.plain(q.stem) + '（' + q.score + ' 分）');
+      if (q.opts && q.opts.length) q.opts.forEach(function (option) { lines.push('  ' + KB.MathRender.plain(option)); });
     });
     if (state.showAnswer) {
       lines.push('', '参考答案');
-      p.questions.forEach(function (q) { lines.push(q.no + '. ' + KB.MathRender.plain(q.answer)); });
+      p.questions.forEach(function (q) {
+        lines.push(q.no + '. ' + KB.MathRender.plain(q.answer));
+        if (q.analysis) lines.push('解析：' + KB.MathRender.plain(q.analysis));
+      });
     }
     var txt = lines.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1207,6 +1282,7 @@
     return null;
   }
   function runStudio() {
+    if (state.aiController) return;
     var text = $('#studioText').value.trim();
     var kw = state.studioKp || text.slice(0, 12);
     var found = findKp(kw) || findKp(text.slice(0, 8));
@@ -1407,6 +1483,7 @@
     openModal('#editModal');
   }
   function saveEdit() {
+    if (state.aiController) return;
     var q = state.paper && state.paper.questions[state.editing];
     if (!q) return;
     var draft = {
@@ -1456,12 +1533,15 @@
   function bind() {
     $('#termSel').addEventListener('change', function () {
       state.term = Number($('#termSel').value);
-      state.kps = {};
+      resetCourseFilters();
       renderRail();
       renderKp();
     });
     $('#chkCross').addEventListener('change', function () {
       state.crossGrade = $('#chkCross').checked;
+      state.collapsed = {};
+      pruneKps();
+      renderRail();
       renderKp();
     });
     $('#diffMin').addEventListener('change', function () {
@@ -1513,11 +1593,20 @@
     $('#btnBuildMobile').addEventListener('click', function () { buildPaper(undefined, { celebrate: true, button: $('#btnBuildMobile') }); });
     $('#btnShuffle').addEventListener('click', function () { buildPaper(); });
     $('#btnJumpPaper').addEventListener('click', function () {
-      setMode('paper');
-      $('#mainPreview').scrollIntoView({ behavior: Motion.reduced() ? 'auto' : 'smooth' });
+      setWorkspacePane(state.workspacePane === 'preview' ? 'setup' : 'preview', true);
+    });
+    $$('.workspace-nav [data-workspace-pane]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        setWorkspacePane(button.getAttribute('data-workspace-pane'), true);
+      });
     });
     $('#chkAnswer').addEventListener('change', function () { state.showAnswer = $('#chkAnswer').checked; renderMode(); });
     $('#chkKpTag').addEventListener('change', function () { state.showKp = $('#chkKpTag').checked; renderMode(); });
+    $('#chkWorkspace').addEventListener('change', function () {
+      state.showWorkspace = $('#chkWorkspace').checked;
+      var paper = $('#printableArea');
+      if (paper) paper.classList.toggle('show-workspace', state.showWorkspace);
+    });
     $('#chkSeal').addEventListener('change', function () { state.showSeal = $('#chkSeal').checked; renderMode(); });
     $('#chkDarkPaper').addEventListener('change', function () { state.darkPaper = $('#chkDarkPaper').checked; renderMode(); });
     $('#btnWord').addEventListener('click', exportWord);
@@ -1558,6 +1647,7 @@
       renderWrong();
     });
     $('#viewPaper').addEventListener('click', function (e) {
+      if (state.aiController) return;
       var btn = e.target.closest && e.target.closest('[data-act]');
       if (!btn || !state.paper) return;
       var index = Number(btn.getAttribute('data-i'));
