@@ -218,3 +218,62 @@ test('grade activation retains the existing focusable button instead of replacin
   assert.ok(button.parentNode);
   assert.equal(button.getAttribute('aria-pressed'), 'true');
 });
+
+test('term options show per-term topic counts and mark empty terms as 未收录', () => {
+  const h = workbench();
+  const d = Registry.SUBJECTS.math.stages.junior;
+  const expect = term => Object.values(d.chapters).filter(c => c.grade === 8 && c.term === term)
+    .reduce((n, c) => n + c.kps.length, 0);
+  const option = v => h.document.querySelector('#termSel option[value="' + v + '"]').textContent;
+  assert.match(option('1'), new RegExp(expect(1) + ' 个考点'));
+  assert.match(option('2'), new RegExp(expect(2) + ' 个考点'));
+  assert.match(option('0'), new RegExp((expect(1) + expect(2)) + ' 个考点'));
+  h.choose('#subjectChips button', '英语');
+  h.choose('#stageChips button', '小学');
+  h.$('#gradeButtons [data-grade="5"]').click();
+  h.input('#termSel', 2, 'change');
+  assert.equal(h.$('#kpList').querySelectorAll('.kp-row').length, 0);
+  assert.match(h.$('#kpList').textContent, /暂未收录/);
+  assert.match(option('2'), /未收录/);
+  assert.match(option('1'), /个考点/);
+});
+
+test('empty term offers a one-tap switch to the sibling term inside the same grade', () => {
+  const h = workbench();
+  h.choose('#subjectChips button', '英语');
+  h.choose('#stageChips button', '小学');
+  h.$('#gradeButtons [data-grade="5"]').click();
+  h.input('#termSel', 2, 'change');
+  const button = h.document.querySelectorAll('#kpList .kp-empty button')
+    .find(b => b.textContent.includes('切到上学期'));
+  assert.ok(button, 'empty state must offer the sibling term');
+  button.click();
+  assert.equal(h.state.term, 1);
+  assert.equal(h.state.grade, 5);
+  assert.equal(h.$('#kpList').querySelectorAll('.kp-row').length, 1);
+  assert.equal(h.$('#termSel').value, '1');
+});
+
+test('changing grade while the selected term is empty auto-picks the sibling term and explains', () => {
+  const h = workbench();
+  h.choose('#subjectChips button', '英语');
+  h.choose('#stageChips button', '小学');
+  h.input('#termSel', 2, 'change');
+  h.$('#gradeButtons [data-grade="5"]').click();
+  assert.equal(h.state.grade, 5);
+  assert.equal(h.state.term, 1, 'grade change settles to a term that has content');
+  assert.equal(h.$('#kpList').querySelectorAll('.kp-row').length, 1);
+  assert.match(h.$('#toasts').textContent, /已自动切换/);
+});
+
+test('empty curriculum copy never offers silent cross-grade fallback', () => {
+  const h = workbench();
+  h.choose('#subjectChips button', '英语');
+  h.choose('#stageChips button', '高中');
+  h.$('#gradeButtons [data-grade="10"]').click();
+  h.input('#termSel', 2, 'change');
+  assert.equal(h.state.grade, 10);
+  assert.ok(!h.$('#kpList').textContent.includes('七年级'));
+  assert.ok(!h.$('#kpList').textContent.includes('八年级'));
+  assert.match(h.$('#kpList').textContent, /暂未收录/);
+});

@@ -130,10 +130,49 @@
       grade: state.grade, term: state.term, crossGrade: state.crossGrade
     });
   }
-  function railPool() {
-    return A.filterChapters(A.chaptersFromStage(stageData()), {
-      grade: state.grade, term: state.term, crossGrade: false
+  function termInfo() {
+    var info = { 1: { topics: 0, chapters: 0 }, 2: { topics: 0, chapters: 0 }, 0: { topics: 0, chapters: 0 } };
+    A.chaptersFromStage(stageData()).forEach(function (ch) {
+      if (ch.grade !== state.grade) return;
+      [ch.term, 0].forEach(function (term) {
+        if (!info[term]) return;
+        info[term].chapters += 1;
+        info[term].topics += ch.topics.length;
+      });
     });
+    return info;
+  }
+
+  function gradesWithTopics() {
+    var map = {};
+    A.chaptersFromStage(stageData()).forEach(function (ch) {
+      map[ch.grade] = (map[ch.grade] || 0) + ch.topics.length;
+    });
+    return map;
+  }
+
+  function renderTermOptions() {
+    var sel = $('#termSel'), info = termInfo();
+    [['1', '上学期'], ['2', '下学期'], ['0', '全学年']].forEach(function (pair) {
+      var option = sel.querySelector('option[value="' + pair[0] + '"]');
+      if (!option) return;
+      var count = info[Number(pair[0])].topics;
+      option.textContent = pair[1] + (count ? ' · ' + count + ' 个考点' : ' · 未收录');
+    });
+    sel.value = String(state.term);
+  }
+
+  // 显式选中的学期没有内容时，切到同年级另一册并说明，绝不跨年级。
+  function settleTermForGrade() {
+    if (state.term !== 1 && state.term !== 2) return false;
+    var info = termInfo();
+    if (info[state.term].topics) return false;
+    var other = state.term === 1 ? 2 : 1;
+    if (!info[other].topics) return false;
+    state.term = other;
+    toast(A.gradeLabel(state.grade) + (other === 2 ? '下学期' : '上学期') +
+      '有 ' + info[other].topics + ' 个考点，已自动切换', 'amber');
+    return true;
   }
   function kpName(id, subject, stage) {
     var d = Registry.SUBJECTS[subject || state.subject].stages[stage || state.stage];
@@ -254,6 +293,7 @@
         state.stage = st;
         state.grade = firstGrade(st);
         state.term = 1;
+        settleTermForGrade();
         resetCourseFilters();
         state.sections = clonePreset();
         renderAll();
@@ -264,7 +304,7 @@
   function renderGrades() {
     var grades = gradeNumbers();
     if (grades.indexOf(state.grade) < 0) state.grade = grades[0] || 7;
-    $('#termSel').value = String(state.term);
+    renderTermOptions();
     var host = $('#gradeButtons');
     host.innerHTML = '';
     grades.forEach(function (grade) {
@@ -273,11 +313,14 @@
       button.className = 'chip' + (grade === state.grade ? ' on' : '');
       button.setAttribute('data-grade', String(grade));
       button.setAttribute('aria-pressed', String(grade === state.grade));
-      button.textContent = A.gradeLabel(grade);
+      var counts = gradesWithTopics();
+      button.textContent = A.gradeLabel(grade) + (counts[grade] ? '' : '（未收录）');
       button.addEventListener('click', function () {
         if (state.aiController || grade === state.grade) return;
         state.grade = grade;
         resetCourseFilters();
+        settleTermForGrade();
+        renderTermOptions();
         $$('#gradeButtons button').forEach(function (choice) {
           var selected = Number(choice.getAttribute('data-grade')) === grade;
           choice.classList.toggle('on', selected);
@@ -367,8 +410,18 @@
 
   function renderRail() {
     var count = chapterPool().length;
-    $('#chapterRail').textContent = (state.crossGrade ? '当前学段 · 跨年级' :
-      A.gradeLabel(state.grade) + ' · ' + A.termLabel(state.term)) + ' · ' + count + ' 个章节';
+    var info = termInfo();
+    var scope = state.crossGrade ? '当前学段 · 跨年级' :
+      A.gradeLabel(state.grade) + ' · ' + A.termLabel(state.term);
+    $('#chapterRail').textContent = count
+      ? scope + ' · ' + count + ' 个章节'
+      : scope + ' · 暂未收录课程';
+    if (!count && !state.crossGrade) {
+      var other = state.term === 2 ? 1 : 2;
+      if (state.term !== 0 && info[other].topics) {
+        $('#chapterRail').textContent += '（' + A.termLabel(other) + '有 ' + info[other].topics + ' 个考点）';
+      }
+    }
   }
 
   function updateMeter() {
@@ -384,7 +437,16 @@
     Motion.setRing($('#kpRing'), total ? picked / total : 0);
     if (!rollApi) rollApi = Motion.roll($('#kpRoll'));
     rollApi.set(picked);
-    $('#kpCount').textContent = picked ? ('已选 ' + picked + ' / ' + total) : '未选（用本年级全部）';
+    var topics = 0;
+    chapterPool().forEach(function (ch) { topics += ch.topics.length; });
+    if (!total) {
+      $('#kpCount').textContent = topics
+        ? '本学期有 ' + topics + ' 个考点，但暂无可用的本地生成器；可切到 AI 出题'
+        : '本学期暂未收录知识点';
+    } else {
+      $('#kpCount').textContent = picked ? ('已选 ' + picked + ' / ' + total) : '未选（用本学期全部）';
+    }
+    $('#kpAll').disabled = !total;
   }
   function renderKp() {
     var box = $('#kpList');
@@ -397,22 +459,60 @@
       var empty = document.createElement('div');
       empty.className = 'kp-empty';
       var message = document.createElement('p');
-      message.textContent = pool.length ? '没有匹配的知识点，试试换一个搜索词。' :
-        A.gradeLabel(state.grade) + A.termLabel(state.term) + '暂未收录课程，不会跨年级出题。';
-      empty.appendChild(message);
-      var action = document.createElement('button');
-      action.type = 'button';
-      action.className = 'mini';
-      action.textContent = pool.length ? '清除搜索' : '查看本年级全学年';
-      action.addEventListener('click', function () {
-        if (!pool.length) { state.term = 0; renderGrades(); }
-        state.kpSearch = '';
-        $('#kpSearch').value = '';
-        $('#kpSearchClear').hidden = true;
+      var actions = [];
+      var info = termInfo();
+      var grades = gradesWithTopics();
+      var search = state.kpSearch.trim();
+      function applyTerm(term) {
+        state.term = Number(term);
+        state.kps = {};
+        renderTermOptions();
         renderRail();
         renderKp();
+      }
+      function applyGrade(grade) {
+        state.grade = Number(grade);
+        state.kps = {};
+        settleTermForGrade();
+        renderGrades();
+        renderTermOptions();
+        renderRail();
+        renderKp();
+      }
+      if (search) {
+        message.textContent = '没有匹配「' + search + '」的考点。';
+        actions.push({ text: '清除搜索', run: function () {
+          state.kpSearch = ''; $('#kpSearch').value = ''; $('#kpSearchClear').hidden = true;
+          renderRail(); renderKp();
+        } });
+      } else if (state.crossGrade) {
+        message.textContent = '当前学段暂未收录知识点。';
+      } else if (info[0].topics) {
+        message.textContent = A.gradeLabel(state.grade) + A.termLabel(state.term) + '暂未收录课程。';
+        [1, 2].forEach(function (term) {
+          if (term === state.term || !info[term].topics) return;
+          actions.push({ text: '切到' + A.termLabel(term) + '（' + info[term].topics + ' 个考点）',
+            run: function () { applyTerm(term); } });
+        });
+        if (state.term !== 0) actions.push({ text: '看全学年（' + info[0].topics + ' 个考点）',
+          run: function () { applyTerm(0); } });
+      } else {
+        message.textContent = A.gradeLabel(state.grade) + '暂未收录课程。';
+        Object.keys(grades).filter(function (g) { return grades[g] > 0 && Number(g) !== state.grade; })
+          .map(Number).sort(function (a, b) { return a - b; }).slice(0, 3).forEach(function (g) {
+            actions.push({ text: A.gradeLabel(g) + '（' + grades[g] + ' 个考点）',
+              run: function () { applyGrade(g); } });
+          });
+      }
+      empty.appendChild(message);
+      actions.forEach(function (item) {
+        var action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'mini';
+        action.textContent = item.text;
+        action.addEventListener('click', item.run);
+        empty.appendChild(action);
       });
-      empty.appendChild(action);
       box.appendChild(empty);
       updateMeter();
       return;
@@ -549,6 +649,7 @@
     if (stages.indexOf(state.stage) < 0) state.stage = stages[0];
     if (gradeNumbers().indexOf(state.grade) < 0) state.grade = firstGrade(state.stage);
     state.term = 1;
+    settleTermForGrade();
     resetCourseFilters();
     state.sections = clonePreset();
     renderAll();
