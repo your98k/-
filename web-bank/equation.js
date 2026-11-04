@@ -111,6 +111,7 @@
     return { text: text, answer: 'x = ' + x, steps: steps || [] };
   }
   function coef(a, v) { return a === 1 ? v : a + v; }
+  function signed(v) { return v >= 0 ? ' + ' + v : ' - ' + Math.abs(v); }
 
   /* ---------------- 小学 ---------------- */
   function primaryQ(diff) {
@@ -187,7 +188,7 @@
       var d7 = a6 * x6 + b6 - c7 * x6;
       if (d7 <= 0) { b6 = 1; d7 = a6 * x6 + b6 - c7 * x6; }
       return {
-        text: coef(a6, 'x') + ' + ' + b6 + ' = ' + coef(c7, 'x') + ' + ' + d7,
+        text: coef(a6, 'x') + ' + ' + b6 + ' = ' + coef(c7, 'x') + signed(d7),
         answer: 'x = ' + x6,
         steps: [coef(a6, 'x') + ' - ' + coef(c7, 'x') + ' = ' + d7 + ' - ' + b6,
           '(' + a6 + ' - ' + c7 + ')x = ' + (d7 - b6),
@@ -213,7 +214,7 @@
         var d = a * x + b - c * x;
         if (d <= 0) { b = 1; d = a * x + b - c * x; }
         return {
-          text: coef(a, 'x') + ' + ' + b + ' = ' + coef(c, 'x') + ' + ' + d,
+          text: coef(a, 'x') + ' + ' + b + ' = ' + coef(c, 'x') + signed(d),
           answer: 'x = ' + x,
           steps: [coef(a, 'x') + ' - ' + coef(c, 'x') + ' = ' + d + ' - ' + b,
             '(' + a + ' - ' + c + ')x = ' + (d - b),
