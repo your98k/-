@@ -4,326 +4,162 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>组卷台 · K12 题库</title>
-<meta name="theme-color" content="#0f5c46">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0e6b5c">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="组卷台">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="中小学题库">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" href="icons/icon.svg">
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
-<body data-workspace="setup">
+<body>
+
 <div class="ios-install" id="iosInstall">
   <b>安装到主屏幕：</b>点底部分享按钮 → 「添加到主屏幕」，以后像 App 一样打开
-  <button id="iosInstallClose" type="button" aria-label="关闭">×</button>
+  <button id="iosInstallClose" aria-label="关闭">×</button>
 </div>
-<header class="theme-header no-print">
-  <div class="header-wash" aria-hidden="true"></div>
-  <div class="header-inner">
-    <div class="brand">
-      <div class="logo serif" id="brandLogo">卷</div>
-      <div>
-        <div class="brand-row">
-          <h1>组卷台</h1>
-          <span class="ver-chip" id="ver">v2</span>
-        </div>
-        <p class="long">K12 题库 · 按知识点智能组卷</p>
-      </div>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">卷</span>
+    <div>
+      <h1>组卷台</h1>
+      <p>K12 题库 · 按知识点智能组卷</p>
     </div>
-    <div class="header-tools">
-      <span class="pill stat-pill">知识点 <strong id="headerTotalKp">—</strong> · 已覆盖 <strong id="headerCoveredKp">—</strong></span>
-      <button class="pill rose" id="btnWrong" type="button">错题本 <span class="badge" id="wrongCount">0</span></button>
-      <button class="pill amber" id="btnStudio" type="button"><span class="full">变式工作台</span><span class="short">变式</span></button>
-      <button class="icon-btn" id="btnAISettings" type="button" title="个人 API，仅用于 AI 原创新题">API</button>
-      <button class="icon-btn" id="btnShare" type="button" title="分享本卷">分享</button>
-      <button class="icon-btn" id="btnTheme" type="button" title="切换深浅外观"><span id="themeIcon">☀</span></button>
-    </div>
+  </div>
+  <div class="topbar-right">
+    <a class="top-link" href="equation.html">方程专项</a>
+    <span class="stat-pill" id="statBank">—</span>
+    <span class="stat-pill" id="statGen">—</span>
+    <span class="version" id="ver">v1.0.0</span>
   </div>
 </header>
-<div class="pwa-update no-print" id="pwaUpdate" role="status" hidden>
-  <span>新版已就绪。刷新会清空当前试卷，请先导出。</span>
-  <button class="mini" id="pwaUpdateApply" type="button">刷新更新</button>
-</div>
 
-<div class="ai-progress no-print" id="aiProgress" role="status" aria-live="polite" hidden>
-  <span id="aiProgressText"></span>
-  <button class="mini" id="btnAICancel" type="button">取消生成</button>
-</div>
-<nav class="workspace-nav no-print" aria-label="工作区切换">
-  <button class="on" type="button" data-workspace-pane="setup" aria-pressed="true">出题设置</button>
-  <button type="button" data-workspace-pane="preview" aria-pressed="false">试卷预览</button>
-</nav>
-<div class="workspace">
-<aside class="sidebar no-print" id="setupPanel" aria-label="出题设置">
-  <fieldset id="conditionFields" class="condition-fields">
-    <section class="card">
-      <div class="card-head">
-        <h2 class="kicker">出题方式</h2>
-      </div>
-      <div class="grid-2" id="sourceSwitch">
-        <button class="chip on" id="modeLocal" type="button" aria-pressed="true">本地题库</button>
-        <button class="chip" id="modeAI" type="button" aria-pressed="false">AI 原创新题</button>
-      </div>
-      <p class="note" id="sourceHint">本地模板随机出题，无需联网、不产生 API 费用。</p>
+<div class="layout">
+
+  <!-- 左侧：出卷条件 -->
+  <aside class="panel" id="panel">
+    <section class="block">
+      <h2>学科</h2>
+      <div class="chips" id="subjectChips"></div>
     </section>
 
-    <section class="card">
-      <div class="card-head">
-        <h2 class="kicker">1. 学科</h2>
-        <span class="hint" id="subjectHint"></span>
+    <section class="block">
+      <h2>学段 / 年级</h2>
+      <div class="chips" id="stageChips"></div>
+      <div class="row">
+        <select id="gradeSel" class="sel"></select>
+        <select id="termSel" class="sel">
+          <option value="1">上学期</option>
+          <option value="2">下学期</option>
+        </select>
       </div>
-      <div class="grid-5" id="subjectChips"></div>
-      <div class="split" style="margin-top:12px">
-        <h2 class="kicker">2. 学段 / 年级</h2>
-        <label class="check"><input id="chkCross" type="checkbox">跨年级混选</label>
+    </section>
+
+    <section class="block">
+      <h2>难度</h2>
+      <div class="chips" id="diffChips"></div>
+      <div class="row diff-custom" id="diffCustomRow" style="display:none">
+        <select id="diffMin" class="sel" title="最低难度"></select>
+        <span class="diff-dash">—</span>
+        <select id="diffMax" class="sel" title="最高难度"></select>
       </div>
-      <div class="grid-3" id="stageChips"></div>
-      <div class="grade-term-grid">
-        <div>
-          <div class="kicker" id="gradeLabel">年级</div>
-          <div id="gradeButtons" class="grade-buttons" role="group" aria-labelledby="gradeLabel"></div>
+      <div class="mini-note" id="diffHint" style="margin-top:6px"></div>
+    </section>
+
+    <section class="block">
+      <h2>知识点 <span class="hint" id="kpCount"></span></h2>
+      <div class="kp-tools">
+        <button class="mini" id="kpAll">全选</button>
+        <button class="mini" id="kpNone">清空</button>
+        <span class="mini-note">不选 = 本年级全部</span>
+      </div>
+      <div class="kp-list" id="kpList"></div>
+    </section>
+
+    <section class="block">
+      <h2>大题设置</h2>
+      <div id="sectionEditor" class="sections"></div>
+      <button class="mini wide" id="addSection">+ 添加大题</button>
+    </section>
+  </aside>
+
+  <!-- 右侧：试卷 -->
+  <main class="main">
+    <div class="toolbar">
+      <button class="btn primary" id="btnBuild">生成试卷</button>
+      <button class="btn" id="btnShuffle">换一套</button>
+      <label class="toggle"><input type="checkbox" id="chkAnswer" checked> 显示答案</label>
+      <label class="toggle"><input type="checkbox" id="chkKpTag"> 标注知识点</label>
+      <span class="spacer"></span>
+      <button class="btn" id="btnWord">导出 Word</button>
+      <button class="btn" id="btnTxt">复制文本</button>
+      <button class="btn" id="btnPrint">打印 / PDF</button>
+      <button class="btn" id="btnWrong">错题本 <b id="wrongCount">0</b></button>
+    </div>
+
+    <div class="meta-bar" id="metaBar"></div>
+
+    <div class="paper-wrap">
+      <div class="paper empty" id="paper">
+        <div class="empty-inner">
+          <div class="empty-icon">📄</div>
+          <h3>还没有试卷</h3>
+          <p>左边选好学科、年级和知识点，点「生成试卷」。<br>每次生成都会得到一套新题，点「换一套」可再来一份。</p>
         </div>
-        <label class="field">学期
-          <select id="termSel" class="sel" aria-label="选择学期">
-            <option value="1">上学期</option>
-            <option value="2">下学期</option>
-            <option value="0">全学年</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2 class="kicker">3. 难度</h2>
-        <span class="hint" id="diffCoef"></span>
-      </div>
-      <div class="grid-5" id="diffChips"></div>
-      <div class="diff-bar" id="diffBar" style="margin-top:10px"></div>
-      <div class="legend" id="diffLegend"></div>
-      <div id="diffCustom" hidden>
-        <div class="grid-2" style="margin-top:8px">
-          <label>最低
-            <select id="diffMin" class="sel" style="padding-left:10px" aria-label="最低难度"></select>
-          </label>
-          <label>最高
-            <select id="diffMax" class="sel" style="padding-left:10px" aria-label="最高难度"></select>
-          </label>
-        </div>
-        <div id="diffSliders" style="margin-top:8px"></div>
-        <p class="note">拖动比例后按权重抽题；只改区间时仍按旧版难度区间出题。</p>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2 class="kicker" id="kpTitle">4. 知识点</h2>
-        <span class="meter">
-          <svg class="ring" viewBox="0 0 36 36" aria-hidden="true"><circle class="ring-bg" cx="18" cy="18" r="15"></circle><circle class="ring-fg" id="kpRing" cx="18" cy="18" r="15"></circle></svg>
-          <span class="roll" id="kpRoll"></span>
-        </span>
-      </div>
-      <p class="note" id="kpCount" style="margin-top:0">未选（用本学期全部）</p>
-      <div id="chapterRail" class="course-context"></div>
-      <div class="tools" style="margin:8px 0">
-        <div class="search">
-          <span class="mag">搜</span>
-          <input id="kpSearch" class="text" type="search" placeholder="搜索章节或考点" aria-label="搜索知识点">
-          <button class="clear" id="kpSearchClear" type="button" hidden aria-label="清空搜索">×</button>
-        </div>
-        <button class="mini" id="kpAll" type="button">全选</button>
-        <button class="mini" id="kpNone" type="button">清空</button>
-      </div>
-      <div class="kp-tree" id="kpList" role="group" aria-labelledby="kpTitle"></div>
-    </section>
-
-    <section class="card">
-      <div class="split">
-        <h2 class="kicker">5. 大题</h2>
-        <div class="preset-row">
-          <button class="preset a" type="button" data-preset="100">100分标准卷</button>
-          <button class="preset b" type="button" data-preset="120">120分中考卷</button>
-          <button class="preset c" type="button" data-preset="50">50分随堂测</button>
-        </div>
-      </div>
-      <div class="sec-head"><span>题型</span><span>题量</span><span>分值</span><span></span></div>
-      <div id="sectionEditor"></div>
-      <div class="split" style="margin-top:8px">
-        <button class="mini" id="addSection" type="button">+ 添加大题</button>
-        <div class="total-line">合计 <b id="planCount">0</b> 题 / 满分 <b class="score" id="planScore">0</b> 分</div>
-      </div>
-      <div class="generate-row">
-        <button class="btn primary btn-generate" id="btnBuild" type="button"><span class="btn-label" id="btnBuildLabel">智能生成试卷</span></button>
-        <button class="btn" id="btnShuffle" type="button">换一套</button>
-      </div>
-    </section>
-  </fieldset>
-</aside>
-
-<main class="main" id="mainPreview" tabindex="-1" aria-label="试卷预览">
-  <section class="card no-print">
-    <div class="split">
-      <div class="mode-bar" id="modeBar">
-        <button class="mode-tab on" type="button" data-mode="paper">仿真试卷</button>
-        <button class="mode-tab" type="button" data-mode="sheet">答题卡</button>
-        <button class="mode-tab" type="button" data-mode="exam">在线作答</button>
-        <button class="mode-tab" type="button" data-mode="blueprint">双向细目表</button>
-      </div>
-      <div class="export-row">
-        <button class="btn sky" id="btnWord" type="button">导出 Word</button>
-        <button class="btn" id="btnTxt" type="button">复制全卷</button>
-        <button class="btn green" id="btnPrint" type="button">打印 / PDF</button>
       </div>
     </div>
-    <div class="toggle-row">
-      <label class="check"><input id="chkAnswer" type="checkbox" checked>显示答案与解析</label>
-      <label class="check"><input id="chkKpTag" type="checkbox">标注考点与难度</label>
-      <label class="check"><input id="chkWorkspace" type="checkbox">预览答题留白</label>
-      <label class="check"><input id="chkSeal" type="checkbox">密封线与得分栏</label>
-      <label class="check"><input id="chkDarkPaper" type="checkbox">深色护眼卷面</label>
-    </div>
-    <div class="stat-row" id="metaBar"></div>
-  </section>
-
-  <div id="viewHost">
-    <div class="view-panel is-active" id="viewPaper"></div>
-    <div class="view-panel" id="viewSheet" hidden></div>
-    <div class="view-panel" id="viewExam" hidden></div>
-    <div class="view-panel" id="viewBlueprint" hidden></div>
-  </div>
-</main>
+  </main>
 </div>
 
-<div class="mobile-bar no-print">
-  <div class="meta">当前配置<br><b id="mobileCount">0</b> 题 · 满分 <b class="score" id="mobileScore">0</b> 分</div>
-  <div class="export-row">
-    <button class="btn primary btn-generate" id="btnBuildMobile" type="button"><span class="btn-label">生成试卷</span></button>
-    <button class="btn" id="btnJumpPaper" type="button">看试卷</button>
-  </div>
-</div>
-
-<div class="modal no-print" id="wrongModal" style="display:none">
+<div class="modal" id="wrongModal" style="display:none">
   <div class="modal-card">
     <div class="modal-head">
       <h3>错题本</h3>
       <span class="modal-sub" id="wbSummary"></span>
-      <button class="modal-close" id="wbClose" type="button" aria-label="关闭错题本">×</button>
+      <button class="modal-close" id="wbClose">×</button>
     </div>
-    <div class="modal-tabs" id="wbTabs">
-      <button class="tab on" type="button" data-tab="wrong">错题</button>
-      <button class="tab" type="button" data-tab="all">全部记录</button>
-      <button class="tab" type="button" data-tab="weak">薄弱知识点</button>
-      <button class="tab" type="button" data-tab="session">本次出题</button>
+    <div class="modal-tabs">
+      <button class="tab on" data-tab="wrong">错题</button>
+      <button class="tab" data-tab="all">全部记录</button>
+      <button class="tab" data-tab="weak">薄弱知识点</button>
     </div>
     <div class="modal-body" id="wbBody"></div>
     <div class="modal-foot">
-      <button class="btn" id="wbClear" type="button">清空错题本</button>
-      <button class="btn primary" id="wbBuild" type="button">按薄弱知识点出变式卷</button>
+      <button class="btn primary" id="wbBuild">按薄弱知识点出变式卷</button>
+      <button class="btn" id="wbClear">清空错题本</button>
     </div>
   </div>
 </div>
 
-<div class="modal no-print" id="studioModal" style="display:none">
-  <div class="modal-card">
-    <div class="modal-head">
-      <h3>同考点变式</h3>
-      <button class="modal-close" id="studioClose" type="button" aria-label="关闭变式工作台">×</button>
-    </div>
-    <div class="modal-body">
-      <p class="note" style="margin-top:0">纯前端用本地模板按考点生成基础、逆向、综合三档变式。拍照识题需要视觉模型，此版本不上传图片。</p>
-      <div class="preset-row" id="studioSamples" style="margin:8px 0"></div>
-      <textarea id="studioText" class="sel" rows="4" maxlength="1200" placeholder="粘贴母题，或点示例。程序按考点名称匹配后出变式。"></textarea>
-      <div class="export-row" style="margin-top:8px">
-        <button class="btn primary" id="studioRun" type="button">生成本地变式</button>
-      </div>
-      <div id="studioOut"></div>
-    </div>
-  </div>
-</div>
-
-<div class="modal no-print" id="editModal" style="display:none">
-  <div class="modal-card narrow">
-    <div class="modal-head">
-      <h3>编辑题目</h3>
-      <button class="modal-close" id="editClose" type="button" aria-label="关闭编辑">×</button>
-    </div>
-    <div class="modal-body">
-      <label class="ai-field">题干<textarea id="editStem" class="sel" rows="4"></textarea></label>
-      <label class="ai-field">选项（每行一个，选择题可写 A. …）<textarea id="editOpts" class="sel" rows="4"></textarea></label>
-      <div class="grid-2">
-        <label class="ai-field">答案<input id="editAnswer" class="sel" style="padding-left:10px"></label>
-        <label class="ai-field">分值<input id="editScore" class="sel" type="number" min="1" max="50" style="padding-left:10px"></label>
-      </div>
-      <label class="ai-field">解析<textarea id="editAnalysis" class="sel" rows="3"></textarea></label>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="editCancel" type="button">取消</button>
-      <button class="btn primary" id="editSave" type="button">保存修改</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal no-print" id="shareModal" style="display:none">
-  <div class="modal-card narrow">
-    <div class="modal-head">
-      <h3>分享试卷</h3>
-      <button class="modal-close" id="shareClose" type="button" aria-label="关闭分享">×</button>
-    </div>
-    <div class="modal-body" style="text-align:center">
-      <div class="qr-box" id="shareQr"></div>
-      <p class="note">本地模板卷把学科、题量和随机种子放进链接，其他设备打开后会复现同一套题。改过的题和 AI 题另外记在本机提取码里。</p>
-      <div class="share-code" id="shareCode">------</div>
-      <p class="note" id="shareNote"></p>
-      <div class="export-row" style="justify-content:center">
-        <input id="shareUrl" class="sel" style="padding-left:10px" readonly>
-        <button class="btn primary" id="shareCopy" type="button">复制链接</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal no-print" id="aiModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="aiSettingsTitle">
-  <form class="modal-card ai-settings" id="aiSettingsForm" autocomplete="off">
-    <div class="modal-head">
-      <h3 id="aiSettingsTitle">个人 API 设置</h3>
-      <button class="modal-close" id="aiSettingsClose" type="button" aria-label="关闭 API 设置">×</button>
-    </div>
-    <div class="modal-body">
-      <p class="ai-notice">仅支持 OpenAI 兼容的 Chat Completions 接口。API Key 只在本页内存中保留，刷新后需重新填写；不会上传到 GitHub，也不会写入本地存储。</p>
-      <label class="ai-field" for="aiBaseUrl">API 地址
-        <input id="aiBaseUrl" type="url" class="sel" style="padding-left:10px" placeholder="https://api.example.com/v1" maxlength="500" required autocomplete="off" spellcheck="false" autocapitalize="none">
-      </label>
-      <label class="ai-field" for="aiModel">模型 ID
-        <input id="aiModel" type="text" class="sel" style="padding-left:10px" placeholder="填写服务商提供的模型 ID" maxlength="160" required autocomplete="off" spellcheck="false" autocapitalize="none">
-      </label>
-      <label class="ai-field" for="aiKey">API Key
-        <input id="aiKey" type="password" class="sel" style="padding-left:10px" placeholder="仅输入你自己的密钥" maxlength="1000" required autocomplete="off" spellcheck="false" autocapitalize="none">
-      </label>
-      <p class="note">保存时只记住地址和模型。点击 AI 生成才会调用接口；Key 只发给该地址。</p>
-      <p id="aiSettingsError" class="ai-error" role="alert"></p>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="aiSettingsClear" type="button">清除设置与密钥</button>
-      <button class="btn primary" type="submit">保存设置</button>
-    </div>
-  </form>
-</div>
-<div class="toasts no-print" id="toasts"></div>
-
-<script src="build-info.js"></script>
 <script src="vendor/katex/katex.min.js"></script>
 <script src="mathrender.js"></script>
 <script src="wrongbook.js"></script>
 <script src="kb.bundle.js"></script>
-<script src="adapter.js"></script>
-<script src="qrcode.js"></script>
-<script src="motion.js"></script>
-<script src="ai.js"></script>
-<script src="ai-settings.js"></script>
 <script src="app.js"></script>
-<script src="pwa.js"></script>
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var standalone = window.navigator.standalone ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+  if (isIOS && !standalone) {
+    var tip = document.getElementById('iosInstall');
+    if (tip) {
+      tip.style.display = 'flex';
+      var close = document.getElementById('iosInstallClose');
+      if (close) close.onclick = function () { tip.style.display = 'none'; };
+    }
+  }
+
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
 </body>
 </html>
