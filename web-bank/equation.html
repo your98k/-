@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>方程专项训练 · 全年级</title>
+<meta name="theme-color" content="#0e6b5c">
+<link rel="stylesheet" href="equation.css">
+</head>
+<body>
+
+<header class="eq-topbar">
+  <div class="eq-brand">
+    <span class="eq-logo">方</span>
+    <div>
+      <h1>方程专项训练</h1>
+      <p>全年级 · 难度可选 · 本地生成</p>
+    </div>
+  </div>
+  <a class="eq-back" href="index.html">← 返回综合组卷</a>
+</header>
+
+<main class="eq-wrap">
+  <section class="eq-controls">
+    <div class="eq-control-row">
+      <label>学段</label>
+      <div class="chips" id="stageChips"></div>
+      <label>年级</label>
+      <select id="gradeSel"></select>
+      <label id="termLabel">学期</label>
+      <select id="termSel">
+        <option value="1">上册</option>
+        <option value="2">下册</option>
+      </select>
+    </div>
+
+    <div class="eq-control-row">
+      <label>难度</label>
+      <div class="chips" id="diffChips"></div>
+      <div class="eq-custom" id="diffCustom" style="display:none">
+        <select id="diffMin" title="最低难度"></select>
+        <span>—</span>
+        <select id="diffMax" title="最高难度"></select>
+      </div>
+      <label>题量</label>
+      <select id="countSel">
+        <option value="10">10 题</option>
+        <option value="12">12 题</option>
+        <option value="20">20 题</option>
+      </select>
+      <button class="eq-btn primary" id="btnBuild">生成专项练习</button>
+      <button class="eq-btn" id="btnPrint">打印 / PDF</button>
+      <button class="eq-btn" id="btnCopy">复制文本</button>
+      <label class="eq-toggle"><input type="checkbox" id="chkAnswer"> 显示答案</label>
+    </div>
+
+    <div class="eq-hint" id="eqHint"></div>
+  </section>
+
+  <article class="eq-paper" id="eqPaper"></article>
+</main>
+
+<script src="equation.js"></script>
+</body>
+</html>
