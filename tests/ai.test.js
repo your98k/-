@@ -501,3 +501,43 @@ test('excludeStems keeps latest 200 entries and prompts with at most ten example
   const retained = fake(data => { data.questions[0].stem = excludes[5]; return response(data); });
   await assert.rejects(fresh().generatePaper(blueprint(), config, { fetch: retained.fetch, excludeStems: excludes }), /重复/);
 });
+
+test('diagnose reports success without leaking the key', async () => {
+  const ai = fresh();
+  const calls = [];
+  const transport = async (url, init) => {
+    calls.push({ url, method: init.method, mode: init.mode });
+    if (init.method === 'GET') return { ok: true, status: 200, text: async () => '' };
+    return response({ choices: [{ message: { content: 'OK' } }] });
+  };
+  const report = await ai.diagnose(config, { fetch: transport });
+  assert.equal(report.ok, true);
+  assert.equal(report.reachable, true);
+  assert.equal(report.http, 200);
+  assert.ok(!report.message.includes(config.apiKey));
+  assert.equal(calls[0].mode, 'no-cors');
+  assert.equal(calls[1].url, 'https://api.example.com/v1/chat/completions');
+});
+
+test('diagnose distinguishes CORS, unreachable hosts and auth failures', async () => {
+  const ai = fresh();
+  const getOk = async () => ({ ok: true, status: 200, text: async () => '' });
+  const cors = await ai.diagnose(config, { fetch: async (url, init) => {
+    if (init.method === 'GET') return getOk();
+    throw new TypeError('Load failed');
+  } });
+  assert.equal(cors.ok, false);
+  assert.equal(cors.cors, true);
+  assert.match(cors.message, /CORS/);
+
+  const down = await ai.diagnose(config, { fetch: async () => { throw new TypeError('Load failed'); } });
+  assert.equal(down.reachable, false);
+  assert.match(down.message, /域名无法访问/);
+
+  const denied = await ai.diagnose(config, { fetch: async (url, init) => {
+    if (init.method === 'GET') return getOk();
+    return { ok: false, status: 401, text: async () => '' };
+  } });
+  assert.equal(denied.ok, false);
+  assert.match(denied.message, /401/);
+});

@@ -48,6 +48,31 @@
       error.textContent = failure.message;
     }
   };
+  var testButton = document.getElementById('aiTest');
+  var testResult = document.getElementById('aiTestResult');
+  if (testButton) testButton.onclick = async function () {
+    if (!root.KB.AI || typeof root.KB.AI.diagnose !== 'function') {
+      testResult.hidden = false;
+      testResult.className = 'ai-test-result bad';
+      testResult.textContent = '当前版本不支持连接诊断。';
+      return;
+    }
+    testButton.disabled = true;
+    testResult.hidden = false;
+    testResult.className = 'ai-test-result';
+    testResult.textContent = '正在测试…';
+    try {
+      var candidate = root.KB.AI.validateConfig({ baseUrl: base.value, model: model.value, apiKey: key.value });
+      var report = await root.KB.AI.diagnose(candidate);
+      testResult.className = 'ai-test-result ' + (report.ok ? 'ok' : 'bad');
+      testResult.textContent = report.message;
+    } catch (failure) {
+      testResult.className = 'ai-test-result bad';
+      testResult.textContent = failure.message;
+    } finally {
+      testButton.disabled = false;
+    }
+  };
   document.getElementById('aiSettingsClose').onclick = close;
   document.getElementById('aiSettingsClear').onclick = function () {
     config = { baseUrl: '', model: '', apiKey: '' };

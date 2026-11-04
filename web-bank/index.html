@@ -305,6 +305,15 @@
       </label>
       <p class="note">保存时只记住地址和模型。点击 AI 生成才会调用接口；Key 只发给该地址。</p>
       <p id="aiSettingsError" class="ai-error" role="alert"></p>
+      <div class="ai-test-row">
+        <button class="btn" id="aiTest" type="button">测试连接</button>
+        <span class="note">只发一条约 8 token 的探针，可能产生极少量费用</span>
+      </div>
+      <p id="aiTestResult" class="ai-test-result" role="status" hidden></p>
+      <details class="ai-help">
+        <summary>连不上、提示跨域怎么办？</summary>
+        <p>多数服务商不允许网页直接调用。仓库 <code>worker/ai-proxy.js</code> 提供可自部署的 Cloudflare Worker 代理：填上你的上游地址与密钥，把 Worker 地址和访问口令分别填入上面的「API 地址」「API Key」即可。</p>
+      </details>
     </div>
     <div class="modal-foot">
       <button class="btn" id="aiSettingsClear" type="button">清除设置与密钥</button>

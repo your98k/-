@@ -63,6 +63,11 @@ body {
 .eq-control-row > label:first-child {
   font-size: 12px; color: var(--muted); min-width: 30px;
 }
+.eq-field { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.eq-field > label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.eq-field.wide { flex: 1 1 240px; flex-wrap: wrap; }
+.eq-field.actions { flex: 1 1 100%; flex-wrap: wrap; }
+.eq-field select { min-height: 34px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   border: 1px solid var(--line); background: #fff; color: #5a6b66;
@@ -209,4 +214,17 @@ select:focus { border-color: var(--brand); }
   .eq-text { font-size: 17px; }
   .eq-space { height: 120px; }
   .eq-answers h3 { font-size: 15px; }
+}
+
+@media (max-width: 560px) {
+  .eq-wrap { padding: 10px 10px 40px; }
+  .eq-controls { padding: 10px 12px; }
+  .eq-control-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  .eq-field.wide { grid-column: 1 / -1; }
+  .eq-field.actions { grid-column: 1 / -1; }
+  .eq-field { justify-content: flex-start; }
+  .eq-field select { flex: 1; }
+  .eq-btn { min-height: 40px; }
+  .chip { min-height: 34px; display: inline-flex; align-items: center; }
+  .eq-paper { border-radius: 6px; }
 }

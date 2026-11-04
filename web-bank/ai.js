@@ -211,12 +211,69 @@
     } catch (e) {
       if (stopped) throw stopped;
       if (safeErrors.has(e)) throw e;
-      throw error('无法连接 AI 接口：请检查网络、HTTPS 及服务商 CORS 跨域设置；未自动重试。');
+      throw error('无法连接 AI 接口：多为服务商未开放浏览器跨域（CORS）。请到「API 设置 → 测试连接」诊断，或使用仓库 worker/ai-proxy.js 部署个人代理；未自动重试。');
     } finally {
       clearTimeout(timer);
       if (external && listener) external.removeEventListener('abort', listener);
     }
   }
+  // 连接诊断：区分网络不可达、CORS 拦截、鉴权/路径/限流等，不发题目、只发一条极短探针。
+  async function diagnose(config, options) {
+    options = options || {};
+    var transport = options.fetch || (typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null);
+    if (typeof transport !== 'function') throw error('当前浏览器不支持网络请求。');
+    config = validateConfig(config);
+    var report = { ok: false, reachable: null, http: null, cors: false, message: '' };
+    try {
+      await transport(config.baseUrl + '/', {
+        method: 'GET', mode: 'no-cors', cache: 'no-store', credentials: 'omit', redirect: 'follow'
+      });
+      report.reachable = true;
+    } catch (e) {
+      report.reachable = false;
+      report.message = '域名无法访问：请检查地址拼写、手机网络与 HTTPS 证书。';
+      return report;
+    }
+    var payload = {
+      model: config.model, stream: false, max_tokens: 8, temperature: 0,
+      messages: [{ role: 'user', content: '只回复 OK' }]
+    };
+    try {
+      var res = await transport(config.endpoint, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + config.apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), mode: 'cors', cache: 'no-store', credentials: 'omit', redirect: 'error'
+      });
+      report.http = res.status;
+      if (!res.ok) {
+        report.message = res.status === 401 || res.status === 403
+          ? '网络可达，但密钥或模型权限被拒绝（' + res.status + '）。'
+          : res.status === 404
+            ? '网络可达，但接口路径或模型不存在（404）。检查地址是否以 /v1 结尾。'
+            : res.status === 429
+              ? '网络可达，但限流或额度不足（429）。'
+              : res.status >= 500
+                ? '服务商暂时不可用（' + res.status + '）。'
+                : '网络可达，但请求被拒绝（' + res.status + '）。';
+        return report;
+      }
+      var body = await res.text();
+      var data;
+      try { data = JSON.parse(body); } catch (_) { data = null; }
+      if (!data || !Array.isArray(data.choices)) {
+        report.message = '网络可达，但返回内容不是 OpenAI 兼容格式。请确认地址是 Chat Completions 接口。';
+        return report;
+      }
+      report.ok = true;
+      report.message = '连接成功：域名、跨域、密钥和模型都正常。';
+      return report;
+    } catch (e) {
+      report.cors = true;
+      report.message = '域名可达，但浏览器被跨域（CORS）拦截。该服务商未开放网页直连：请在仓库 worker/ 部署个人代理，把代理地址填入 API 地址。';
+      return report;
+    }
+  }
+
   function fingerprint(stem) {
     return stem.normalize('NFKC').toLowerCase().replace(/[\s\u200b-\u200f\ufeff]+/g, '');
   }
@@ -313,5 +370,5 @@
     return paper;
   }
 
-  return { validateConfig: validateConfig, generatePaper: generatePaper };
+  return { validateConfig: validateConfig, generatePaper: generatePaper, diagnose: diagnose };
 });

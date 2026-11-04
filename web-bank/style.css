@@ -381,3 +381,14 @@ body{
   line-height: 1;
   color: #a57a3a;
 }
+
+.ai-test-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.ai-test-row .note { margin: 0; }
+.ai-test-result { font-size: 13px; line-height: 1.6; border-radius: 8px; padding: 8px 10px; }
+.ai-test-result.ok { color: #86efac; background: rgba(16, 185, 129, .12); border: 1px solid rgba(16, 185, 129, .35); }
+.ai-test-result.bad { color: #fda4af; background: rgba(244, 63, 94, .12); border: 1px solid rgba(244, 63, 94, .35); }
+.ai-help { margin-top: 10px; font-size: 12px; color: var(--muted); }
+.ai-help summary { cursor: pointer; min-height: 36px; display: flex; align-items: center; }
+.ai-help p { margin: 6px 0 0; line-height: 1.7; }
+html.light .ai-test-result.ok { color: #047857; }
+html.light .ai-test-result.bad { color: #b91c1c; }

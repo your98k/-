@@ -23,35 +23,31 @@
 <main class="eq-wrap">
   <section class="eq-controls">
     <div class="eq-control-row">
-      <label>学段</label>
-      <div class="chips" id="stageChips"></div>
-      <label>年级</label>
-      <select id="gradeSel"></select>
-      <label id="termLabel">学期</label>
-      <select id="termSel">
+      <div class="eq-field wide"><label>学段</label><div class="chips" id="stageChips"></div></div>
+      <div class="eq-field"><label>年级</label><select id="gradeSel"></select></div>
+      <div class="eq-field"><label id="termLabel">学期</label><select id="termSel">
         <option value="1">上册</option>
         <option value="2">下册</option>
-      </select>
+      </select></div>
     </div>
 
     <div class="eq-control-row">
-      <label>难度</label>
-      <div class="chips" id="diffChips"></div>
-      <div class="eq-custom" id="diffCustom" style="display:none">
-        <select id="diffMin" title="最低难度"></select>
-        <span>—</span>
-        <select id="diffMax" title="最高难度"></select>
+      <div class="eq-field wide"><label>难度</label><div class="chips" id="diffChips"></div>
+        <div class="eq-custom" id="diffCustom" style="display:none">
+          <select id="diffMin" title="最低难度"></select><span>—</span><select id="diffMax" title="最高难度"></select>
+        </div>
       </div>
-      <label>题量</label>
-      <select id="countSel">
+      <div class="eq-field"><label>题量</label><select id="countSel">
         <option value="10">10 题</option>
         <option value="12">12 题</option>
         <option value="20">20 题</option>
-      </select>
-      <button class="eq-btn primary" id="btnBuild">生成专项练习</button>
-      <button class="eq-btn" id="btnPrint">打印 / PDF</button>
-      <button class="eq-btn" id="btnCopy">复制文本</button>
-      <label class="eq-toggle"><input type="checkbox" id="chkAnswer"> 显示答案</label>
+      </select></div>
+      <div class="eq-field actions">
+        <button class="eq-btn primary" id="btnBuild">生成专项练习</button>
+        <button class="eq-btn" id="btnPrint">打印 / PDF</button>
+        <button class="eq-btn" id="btnCopy">复制文本</button>
+        <label class="eq-toggle"><input type="checkbox" id="chkAnswer"> 显示答案</label>
+      </div>
     </div>
 
     <div class="eq-hint" id="eqHint"></div>
