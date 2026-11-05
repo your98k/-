@@ -15,7 +15,8 @@ const BUILD = {
   assets: [
     './index.html', './style.css?v=abc123def456', './kb.bundle.js?v=abc123def456',
     './pwa.js?v=abc123def456', './manifest.webmanifest', './icons/icon-192.png',
-    './icons/icon-maskable-512.png', './vendor/katex/katex.min.css?v=abc123def456',
+    './icons/icon-maskable-512.png', './equation.html', './equation.css', './equation.js',
+    './vendor/katex/katex.min.css?v=abc123def456',
     './vendor/katex/katex.min.js?v=abc123def456',
     './vendor/katex/fonts/KaTeX_Main-Regular.woff2',
     './vendor/katex/fonts/KaTeX_Main-Regular.woff',
@@ -176,6 +177,29 @@ test('offline index navigation ignores query parameters and uses the scoped inde
   assert.equal(sw.calls.network.length, 0);
 });
 
+test('offline equation navigation and its assets use the current precache', async () => {
+  const page = SCOPE + 'equation.html';
+  const styles = SCOPE + 'equation.css';
+  const script = SCOPE + 'equation.js';
+  const caches = cacheStorage({ 'mathbank-v4': { [page]: 'old equation page' } });
+  const sw = worker({ caches, network: offline });
+  await sw.dispatch('install').done;
+
+  for (const [url, mode, cachedURL] of [
+    [page, 'navigate', page],
+    [page + '?grade=5', 'navigate', page],
+    [styles, 'cors', styles],
+    [script, 'cors', script]
+  ]) {
+    const event = sw.dispatch('fetch', { request: request(url, { mode }) });
+    assert.ok(event.response, url);
+    assert.equal(await (await event.response).text(), 'precache:' + cachedURL);
+  }
+  assert.ok(caches.calls.matches.every(call => call.name === CURRENT));
+  assert.equal(caches.calls.globalMatches, 0);
+  assert.equal(sw.calls.network.length, 0);
+});
+
 test('a miss in the current cache goes to the network, not another app or version', async () => {
   const url = assetURLs[1];
   const caches = cacheStorage({
@@ -190,6 +214,19 @@ test('a miss in the current cache goes to the network, not another app or versio
   assert.equal(caches.calls.globalMatches, 0);
 });
 
+test('an equation navigation missing from the current cache falls back to the original request', async () => {
+  const page = SCOPE + 'equation.html';
+  const caches = cacheStorage({ 'mathbank-v4': { [page]: 'old equation page' } });
+  const sw = worker({ caches });
+  const req = request(page + '?grade=5', { mode: 'navigate' });
+  const event = sw.dispatch('fetch', { request: req });
+  assert.ok(event.response);
+  assert.equal(await (await event.response).text(), 'network');
+  assert.deepEqual(sw.calls.network, [req]);
+  assert.deepEqual(caches.calls.matches, [{ name: CURRENT, url: page }]);
+  assert.equal(caches.calls.globalMatches, 0);
+});
+
 test('other origins, sibling paths, unknown URLs and non-GET requests are untouched', () => {
   const sw = worker();
   const untouched = [
@@ -201,6 +238,14 @@ test('other origins, sibling paths, unknown URLs and non-GET requests are untouc
     request(SCOPE + 'unknown.js'),
     request(SCOPE + 'api/questions?subject=math'),
     request(SCOPE + 'course/', { mode: 'navigate' }),
+    request(SCOPE + 'unknown.html?grade=5', { mode: 'navigate' }),
+    request(SCOPE + 'equation.html/extra', { mode: 'navigate' }),
+    request('https://elsewhere.test/school/bank/equation.html', { mode: 'navigate' }),
+    request('https://example.test/school/bank-other/equation.html', { mode: 'navigate' }),
+    request(SCOPE + 'equation.js', { mode: 'navigate' }),
+    request(SCOPE + 'manifest.webmanifest', { mode: 'navigate' }),
+    request(SCOPE + 'equation.html?not-a-navigation=1'),
+    request(SCOPE + 'equation.html', { method: 'POST', mode: 'navigate' }),
     request(INDEX + '?not-a-navigation=1'),
     request(assetURLs[1] + '&unknown=1'),
     request(assetURLs[1], { method: 'POST' }),

@@ -42,11 +42,15 @@ self.addEventListener('fetch', event => {
   if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
 
   // 每一代页面与资源均从同一个版本缓存读取，避免新 HTML 搭配旧脚本。
-  // 仅处理本站首页和构建清单里的资源，其他 URL 交给网络。
+  // 只接管首页和构建清单里的页面与资源，其他 URL 交给网络。
   let key = url.href;
   if (req.mode === 'navigate') {
-    if (url.pathname !== scope.pathname && url.pathname !== new URL(INDEX).pathname) return;
-    key = INDEX;
+    if (url.pathname === scope.pathname || url.pathname === new URL(INDEX).pathname) {
+      key = INDEX;
+    } else {
+      key = url.origin + url.pathname;
+      if (!url.pathname.endsWith('.html') || !ASSETS.has(key)) return;
+    }
   } else if (!ASSETS.has(key)) {
     return;
   }

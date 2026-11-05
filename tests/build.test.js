@@ -80,6 +80,18 @@ test('离线清单包含 HTML 实际引用的指纹资源和全部 KaTeX 字体'
   }
 });
 
+test('方程专项页面及其样式和脚本都包含在离线构建中', () => {
+  const base = 'https://example.test/k12-ai-question-bank/equation.html';
+  const assets = new Set(info().assets.map(url => new URL(url, base).href));
+  assert.ok(assets.has(base), '漏缓存方程专项页面');
+  const html = read('equation.html').toString();
+  const urls = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css)(?:\?[^"]*)?)"/g)]
+    .map(match => match[1]);
+  assert.ok(urls.some(url => /\.css(?:\?|$)/.test(url)), '方程页面缺少样式');
+  assert.ok(urls.some(url => /\.js(?:\?|$)/.test(url)), '方程页面缺少脚本');
+  for (const url of urls) assert.ok(assets.has(new URL(url, base).href), '漏缓存方程页面资源：' + url);
+});
+
 test('相同内容重复构建的版本与发布文件完全一致', () => {
   const before = info();
   const bundle = read('kb.bundle.js');
