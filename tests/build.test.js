@@ -136,3 +136,20 @@ test('页面、内核使用同一个 package 版本；KaTeX 常见公式仍能�
     assert.doesNotThrow(() => katex.renderToString(formula, { throwOnError: true }));
   }
 });
+
+test('首页与方程页的 HTML 类名都能在各自样式表中找到规则', () => {
+  for (const [page, style] of [['index.html', 'style.css'], ['equation.html', 'equation.css']]) {
+    const html = fs.readFileSync(path.join(ROOT, 'web-bank', page), 'utf8');
+    const css = fs.readFileSync(path.join(ROOT, 'web-bank', style), 'utf8');
+    const classes = [...new Set([...html.matchAll(/class="([^"]+)"/g)]
+      .flatMap(match => match[1].split(/\s+/)).filter(Boolean))];
+    const missing = classes.filter(name =>
+      !new RegExp('\\.' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w-])').test(css));
+    assert.deepEqual(missing, [], page + ' 有类名在 ' + style + ' 中没有对应规则，可能发生 HTML/CSS 错配');
+  }
+  // 工作台布局的关键选择器，防止再次被旧版样式整体覆盖。
+  const css = fs.readFileSync(path.join(ROOT, 'web-bank', 'style.css'), 'utf8');
+  for (const selector of ['.theme-header', '.header-inner', '.workspace', '.sidebar', '.card-head', '.kicker']) {
+    assert.ok(css.includes(selector), '缺少工作台布局规则：' + selector);
+  }
+});
