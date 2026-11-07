@@ -125,6 +125,24 @@ button:active:not(:disabled) { transform: scale(.97); }
   padding: 12px 12px calc(env(safe-area-inset-bottom) + 92px);
 }
 .sidebar, .main { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.eq-entry {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 70px; padding: 12px 14px;
+  border: 1px solid var(--theme-primary); border-radius: 16px;
+  background: var(--theme-primary-soft); color: var(--text);
+  text-decoration: none; box-shadow: var(--shadow);
+  transition: border-color .15s, background .15s, transform .15s var(--ease);
+}
+.eq-entry:hover { border-color: var(--theme-primary-dark); background: var(--card); }
+.eq-entry-icon {
+  flex: none; min-width: 46px; height: 46px; display: grid; place-items: center;
+  border-radius: 12px; background: var(--theme-primary); color: #fff;
+  font-size: 14px; font-weight: 700; font-family: Georgia, serif;
+}
+.eq-entry-copy { min-width: 0; display: grid; gap: 1px; line-height: 1.4; }
+.eq-entry-copy strong { font-size: 15px; }
+.eq-entry-copy > span { color: var(--muted); font-size: 12px; }
+.eq-entry-arrow { margin-left: auto; color: var(--theme-primary); font-size: 22px; line-height: 1; }
 .condition-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .card {
   background: var(--card); border: 1px solid var(--line);
@@ -628,9 +646,6 @@ html.light .mobile-bar { background: rgba(255, 255, 255, .94); }
   .q-tools, .q-actions, .paper-tip { display: none !important; }
   .a4 .ws { display: block !important; }
 }
-
-/* 方程专项入口是链接，避免浏览器默认下划线 */
-a.pill, a.eq-entry { text-decoration: none; }
 
 .ai-test-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
 .ai-test-row .note { margin: 0; }

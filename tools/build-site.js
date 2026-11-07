@@ -68,13 +68,15 @@ const revision = hash.digest('hex').slice(0, 12);
 // 为 HTML 的脚本/样式链接加构建指纹，避开旧 v4 Worker 的无版本 URL 缓存。
 // 指纹由注入前的内容计算，避免循环哈希。
 const linked = new Set();
-const page = path.join(OUT, 'index.html');
-const html = fs.readFileSync(page, 'utf8').replace(/\b(src|href)="([^"]+\.(?:js|css))"/g,
-  (_, attribute, file) => {
-    linked.add('./' + file);
-    return `${attribute}="${file}?v=${revision}"`;
-  });
-fs.writeFileSync(page, html);
+for (const name of ['index.html', 'equation.html']) {
+  const page = path.join(OUT, name);
+  const html = fs.readFileSync(page, 'utf8').replace(/\b(src|href)="([^"]+\.(?:js|css))"/g,
+    (_, attribute, file) => {
+      linked.add('./' + file);
+      return `${attribute}="${file}?v=${revision}"`;
+    });
+  fs.writeFileSync(page, html);
+}
 const info = {
   version: pkg.version,
   revision,

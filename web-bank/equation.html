@@ -14,14 +14,24 @@
     <span class="eq-logo">方</span>
     <div>
       <h1>方程专项训练</h1>
-      <p>全年级 · 难度可选 · 本地生成</p>
+      <p>全年级 · 难度可选 · 本地与 AI 出题</p>
     </div>
   </div>
   <a class="eq-back" href="index.html">← 返回综合组卷</a>
 </header>
+<div class="eq-update" id="pwaUpdate" role="status" hidden>
+  <span>新版已就绪，更新前请先导出当前试卷。</span>
+  <button class="eq-btn" id="pwaUpdateApply" type="button">刷新更新</button>
+</div>
 
 <main class="eq-wrap">
   <section class="eq-controls">
+    <div class="eq-control-row eq-source">
+      <span>出题方式</span>
+      <button class="chip on" id="eqModeLocal" type="button" aria-pressed="true">本地出题</button>
+      <button class="chip" id="eqModeAI" type="button" aria-pressed="false">AI 原创新题</button>
+      <button class="eq-btn" id="eqAISettings" type="button">API 设置</button>
+    </div>
     <div class="eq-control-row">
       <div class="eq-field wide"><label>学段</label><div class="chips" id="stageChips"></div></div>
       <div class="eq-field"><label>年级</label><select id="gradeSel"></select></div>
@@ -53,11 +63,29 @@
     </div>
 
     <div class="eq-hint" id="eqHint"></div>
+    <div class="eq-ai-status" id="eqAIStatus" role="status" aria-live="polite"></div>
+    <button class="eq-btn" id="eqAICancel" type="button" hidden>取消 AI 出题</button>
   </section>
 
   <article class="eq-paper" id="eqPaper"></article>
 </main>
 
+<div class="eq-modal" id="aiModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="aiSettingsTitle">
+  <form class="eq-modal-card" id="aiSettingsForm" autocomplete="off">
+    <div class="eq-modal-head"><h2 id="aiSettingsTitle">个人 API 设置</h2><button class="eq-btn" id="aiSettingsClose" type="button" aria-label="关闭 API 设置">×</button></div>
+    <p>地址和模型沿用综合题库设置。访问口令只在本页内存中保留，进入或刷新页面后需重新填写。</p>
+    <label>API 地址<input id="aiBaseUrl" type="url" placeholder="https://api.example.com/v1" maxlength="500" required autocomplete="off" spellcheck="false"></label>
+    <label>模型 ID<input id="aiModel" type="text" maxlength="160" required autocomplete="off" spellcheck="false"></label>
+    <label>API Key / 代理访问口令<input id="aiKey" type="password" maxlength="1000" required autocomplete="off" spellcheck="false"></label>
+    <p id="aiSettingsError" class="eq-ai-error" role="alert"></p>
+    <div class="eq-modal-actions"><button class="eq-btn" id="aiTest" type="button">测试连接</button><button class="eq-btn" id="aiSettingsClear" type="button">清除设置</button><button class="eq-btn primary" type="submit">保存</button></div>
+    <p id="aiTestResult" role="status" hidden></p>
+  </form>
+</div>
+<script src="kb.bundle.js"></script>
+<script src="ai.js"></script>
+<script src="ai-settings.js"></script>
 <script src="equation.js"></script>
+<script src="pwa.js"></script>
 </body>
 </html>
