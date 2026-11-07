@@ -29,12 +29,22 @@
     count: 10,
     isCustomCount: false,
     showAnswer: false,
-    paper: []
+    paper: [],
+    generationNotice: ''
   };
+
+  var HISTORY_KEY = 'equation-recent-questions-v1';
+  var HISTORY_LIMIT = 500;
+  var recentQuestions = [];
+  try {
+    var savedHistory = JSON.parse(window.localStorage.getItem(HISTORY_KEY) || '[]');
+    if (Array.isArray(savedHistory)) {
+      recentQuestions = savedHistory.filter(function (text) { return typeof text === 'string'; }).slice(-HISTORY_LIMIT);
+    }
+  } catch (e) { /* 存储不可用时仍在本次页面会话内去重 */ }
 
   /* ---------------- 基础工具 ---------------- */
   function ri(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
-  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function fmt(n) {
     if (typeof n !== 'number') return String(n);
     var v = Math.round(n * 1000) / 1000;
@@ -272,7 +282,7 @@
 
   function quadraticQ(harder) {
     var a = harder ? ri(1, 3) : 1;
-    var p = ri(1, 6), q = ri(1, 6);
+    var p = ri(1, 15), q = ri(1, 15);
     var b = -a * (p + q), c = a * p * q;
     var s = (a === 1 ? 'x²' : a + 'x²');
     s += b === 0 ? '' : (b > 0 ? ' + ' + b + 'x' : ' - ' + Math.abs(b) + 'x');
@@ -311,8 +321,8 @@
   }
 
   function expQ(shift) {
-    var a = pick([2, 3, 4, 5]);
-    var n = ri(2, 4);
+    var a = ri(2, 10);
+    var n = ri(1, 6);
     var c = shift ? ri(1, Math.max(1, n - 1)) : 0;
     var b = Math.pow(a, n);
     var x = n - c;
@@ -327,9 +337,9 @@
   }
 
   function logQ(shift) {
-    var a = pick([2, 3, 10]);
-    var n = ri(1, 4);
-    var c = shift ? ri(1, 5) : 0;
+    var a = ri(2, 10);
+    var n = ri(1, 6);
+    var c = shift ? ri(1, Math.min(5, Math.pow(a, n) - 1)) : 0;
     var x = Math.pow(a, n) - c;
     if (x <= 0) { c = 0; x = Math.pow(a, n); }
     return {
@@ -346,21 +356,27 @@
     if (isNaN(count) || count < 1) count = 1;
     if (count > 100) count = 100;
     state.count = count;
-    var questions = [], seen = {}, guard = 0;
-    while (questions.length < count && guard < count * 80) {
-      guard++;
-      var d = pickDiff();
-      var q = makeQuestion(d);
-      if (!q || seen[q.text]) continue;
-      seen[q.text] = 1;
-      questions.push(q);
+    var questions = [], seen = Object.create(null), recent = Object.create(null);
+    recentQuestions.forEach(function (text) { recent[text] = true; });
+    var reused = false;
+    // 先排除近期题目；候选不足时允许使用历史题，但仍保证本卷不重复。
+    for (var pass = 0; pass < 2 && questions.length < count; pass++) {
+      for (var guard = 0; guard < count * 80 && questions.length < count; guard++) {
+        var q = makeQuestion(pickDiff());
+        if (!q || seen[q.text] || (pass === 0 && recent[q.text])) continue;
+        seen[q.text] = true;
+        if (recent[q.text]) reused = true;
+        questions.push(q);
+      }
     }
-    // 保险：不足时补简单题
-    while (questions.length < count) {
-      var qq = makeQuestion(1);
-      if (qq && !seen[qq.text]) { seen[qq.text] = 1; questions.push(qq); }
-      else break;
-    }
+    state.generationNotice = questions.length < count
+      ? '上次生成的不同题目数量不足：实际 ' + questions.length + ' 题，请调整难度或减少题量。'
+      : reused ? '上次未找到足够新题，已使用部分近期题目。' : '';
+    // 保留最近使用的题目，限制存储大小并兼容禁用本地存储的浏览器。
+    recentQuestions = recentQuestions.filter(function (text) { return !seen[text]; });
+    questions.forEach(function (q) { recentQuestions.push(q.text); });
+    recentQuestions = recentQuestions.slice(-HISTORY_LIMIT);
+    try { window.localStorage.setItem(HISTORY_KEY, JSON.stringify(recentQuestions)); } catch (e) { /* 忽略存储错误 */ }
     questions.forEach(function (q, i) {
       q.star = i === questions.length - 1;
       if (q.star && !q.checkText) {
@@ -428,7 +444,8 @@
     document.getElementById('eqHint').textContent =
       '当前：' + STAGES[state.stage].name + gradeLabel(state.grade) +
       (state.stage === 'senior' ? '' : termName(state.term)) +
-      ' · ' + spec.label + extra + ' · ' + state.count + ' 题 · 时间 ' + (state.count * 2) + ' 分钟 · 满分 100 分';
+      ' · ' + spec.label + extra + ' · ' + state.count + ' 题 · 时间 ' + (state.count * 2) + ' 分钟 · 满分 100 分' +
+      (state.generationNotice ? ' · ' + state.generationNotice : '');
   }
 
   /* ---------------- 控制区 ---------------- */

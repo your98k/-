@@ -7,12 +7,14 @@ const vm = require('node:vm');
 const documentFrom = require('./helpers/workbench-dom.js');
 const ROOT = path.join(__dirname, '..');
 
-function loadEquation() {
+function loadEquation(random = Math.random, storage) {
   const document = documentFrom(fs.readFileSync(path.join(ROOT, 'web-bank/equation.html'), 'utf8'));
+  const testMath = Object.create(Math);
+  testMath.random = random;
   const sandbox = {
     document,
     console,
-    Math,
+    Math: testMath,
     parseInt,
     Number,
     String,
@@ -20,7 +22,7 @@ function loadEquation() {
     Array,
     Object,
     navigator: {},
-    window: { print() {} }
+    window: { print() {}, localStorage: storage }
   };
   sandbox.window.document = document;
   const script = fs.readFileSync(path.join(ROOT, 'web-bank/equation.js'), 'utf8');
@@ -38,6 +40,76 @@ test('equation.html 包含自定义题量选项和输入框', () => {
   const input = document.querySelector('#countInput');
   assert.ok(input, '缺少 countInput 输入框');
   assert.equal(input.attributes.type, 'number');
+});
+
+function questionTexts(document) {
+  return document.querySelectorAll('#eqPaper .eq-text').map(node =>
+    node.textContent.replace(/^\s*\d+\.\s*★?\s*/, '').trim());
+}
+
+test('连续生成时优先避开近期出现过的题目', () => {
+  let seed = 123456;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000);
+  const { document } = loadEquation(random);
+  const seen = new Set(questionTexts(document));
+  for (let i = 0; i < 9; i++) {
+    document.getElementById('btnBuild').click();
+    const current = questionTexts(document);
+    assert.equal(current.length, 10);
+    assert.equal(new Set(current).size, current.length, '同一张试卷不得重复');
+    for (const question of current) {
+      assert.ok(!seen.has(question), '近期题目重复：' + question);
+      seen.add(question);
+    }
+  }
+});
+
+test('刷新后仍避开已保存的近期题目', () => {
+  const records = new Map();
+  const storage = { getItem: key => records.get(key) || null, setItem: (key, value) => records.set(key, value) };
+  function seeded() {
+    let seed = 123456;
+    return () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000);
+  }
+  const first = questionTexts(loadEquation(seeded(), storage).document);
+  const second = questionTexts(loadEquation(seeded(), storage).document);
+  assert.equal(second.length, 10);
+  assert.ok(second.every(text => !first.includes(text)));
+});
+
+test('本地存储不可用时仍可生成并在当前页面避开近期题目', () => {
+  const storage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+  let seed = 123456;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000);
+  const { document } = loadEquation(random, storage);
+  const first = questionTexts(document);
+  document.getElementById('btnBuild').click();
+  const second = questionTexts(document);
+  assert.equal(second.length, 10);
+  assert.ok(second.every(text => !first.includes(text)));
+});
+
+test('无法生成足量不同题目时不以其他难度补题并提示不足', () => {
+  // 恒定随机源模拟反复抽到同一题，检验重试达到上限的行为。
+  const { document } = loadEquation(() => 0.5);
+  const custom = document.querySelectorAll('#diffChips button').find(button => button.textContent === '自定义');
+  custom.click();
+  const min = document.getElementById('diffMin');
+  const max = document.getElementById('diffMax');
+  min.value = '3';
+  min.dispatchEvent({ type: 'change' });
+  max.value = '3';
+  max.dispatchEvent({ type: 'change' });
+  document.getElementById('btnBuild').click();
+
+  const questions = questionTexts(document);
+  assert.ok(questions.length > 0 && questions.length < 10);
+  assert.equal(new Set(questions).size, questions.length);
+  for (const question of questions) {
+    assert.match(question, /^\d+x [+-] \d+ = \d+$/, '不能用简单题替代中等难度：' + question);
+  }
+  assert.match(document.getElementById('eqHint').textContent, /不足/);
+  assert.ok(document.querySelector('#eqPaper .eq-meta').textContent.includes('共 ' + questions.length + ' 题'));
 });
 
 test('选择自定义题量时显示输入框并按输入题量生成题目', () => {
