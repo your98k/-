@@ -48,6 +48,9 @@ body {
   padding: 5px 11px; border-radius: 20px; white-space: nowrap;
 }
 .eq-back:hover { background: rgba(255,255,255,.28); }
+.eq-update { padding: 8px 16px; background: #fff5d8; color: #634b0a; font-size: 13px; }
+.eq-update[hidden] { display: none; }
+.eq-update .eq-btn { margin-left: 8px; }
 
 /* ---------- 控制区 ---------- */
 .eq-wrap { max-width: 1000px; margin: 0 auto; padding: 16px 14px 50px; }
@@ -101,6 +104,21 @@ select:focus, input[type="number"]:focus { border-color: var(--brand); }
 }
 .eq-toggle input { accent-color: var(--brand); }
 .eq-hint { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.6; }
+.eq-source { padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+.eq-source > span { color: var(--ink-2); font-size: 12px; }
+.eq-ai-status { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
+.eq-ai-status:empty { display: none; }
+.eq-btn:disabled, .chip:disabled, select:disabled, input:disabled { opacity: .55; cursor: not-allowed; }
+.eq-modal { position: fixed; inset: 0; z-index: 100; background: rgba(14,30,25,.55); align-items: center; justify-content: center; padding: 16px; }
+.eq-modal-card { width: 100%; max-width: 490px; max-height: 90vh; overflow: auto; background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 15px 50px rgba(0,0,0,.2); }
+.eq-modal-head { display: flex; justify-content: space-between; align-items: center; }
+.eq-modal-head h2 { margin: 0; font-size: 18px; }
+.eq-modal-card p { font-size: 12px; color: var(--ink-2); }
+.eq-modal-card label { display: grid; gap: 4px; margin: 10px 0; font-size: 13px; }
+.eq-modal-card input { width: 100%; min-height: 38px; border: 1px solid var(--line); border-radius: 7px; padding: 8px; font: inherit; }
+.eq-modal-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.eq-ai-error, #aiTestResult.bad { color: #a12b22 !important; }
+#aiTestResult.ok { color: var(--brand) !important; }
 
 /* ---------- 试卷 ---------- */
 .eq-paper {
@@ -157,7 +175,7 @@ select:focus, input[type="number"]:focus { border-color: var(--brand); }
 }
 .eq-text {
   font-size: 18px; line-height: 1.55;
-  font-weight: 600; word-break: break-word;
+  font-weight: 600; word-break: break-word; white-space: pre-line;
 }
 .eq-no { font-weight: 700; margin-right: 4px; }
 .eq-star { color: var(--accent); margin-right: 3px; }
@@ -178,12 +196,13 @@ select:focus, input[type="number"]:focus { border-color: var(--brand); }
   margin-bottom: 9px;
 }
 .eq-ans b { color: var(--ink); }
-.eq-ans .steps { color: var(--muted); }
+.eq-ans .steps { color: var(--muted); white-space: pre-line; }
 
 /* ---------- 打印 ---------- */
 @media print {
+  .eq-modal { display: none !important; }
   body { background: #fff; }
-  .eq-topbar, .eq-controls { display: none !important; }
+  .eq-topbar, .eq-controls, .eq-update { display: none !important; }
   .eq-wrap { max-width: none; margin: 0; padding: 0; }
   .eq-paper {
     width: auto; max-width: none; margin: 0; padding: 0;

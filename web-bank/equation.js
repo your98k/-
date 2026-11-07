@@ -1,6 +1,6 @@
 /* =========================================================
  * 方程专项训练 · 本地生成
- * 覆盖小学 / 初中 / 高中，难度 1–5 可选；不依赖任何 AI 接口。
+ * 覆盖小学 / 初中 / 高中，支持本地或个人 API 出题。
  * ======================================================= */
 (function () {
   'use strict';
@@ -30,7 +30,11 @@
     isCustomCount: false,
     showAnswer: false,
     paper: [],
-    generationNotice: ''
+    generationNotice: '',
+    source: 'local',
+    paperSource: 'local',
+    paperMeta: null,
+    aiController: null
   };
 
   var HISTORY_KEY = 'equation-recent-questions-v1';
@@ -383,26 +387,91 @@
         q.checkText = '把求出的解代入原方程（组）检验，等式成立。';
       }
     });
+    state.paperMeta = { stage: state.stage, grade: state.grade, term: state.term };
     state.paper = questions;
+    state.paperSource = 'local';
     renderPaper();
     renderHint();
   }
 
+  function setAIBusy(busy) {
+    document.querySelectorAll('.eq-controls button, .eq-controls select, .eq-controls input').forEach(function (el) {
+      if (el.id !== 'eqAICancel') el.disabled = busy;
+    });
+    document.getElementById('eqAICancel').hidden = !busy;
+  }
+
+  function renderSource() {
+    var isAI = state.source === 'ai';
+    ['eqModeLocal', 'eqModeAI'].forEach(function (id) {
+      var active = (id === 'eqModeAI') === isAI;
+      var button = document.getElementById(id);
+      button.classList.toggle('on', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    document.getElementById('btnBuild').textContent = isAI ? 'AI 生成专项练习' : '生成专项练习';
+    renderHint();
+  }
+
+  async function generateAI() {
+    if (state.aiController) return;
+    var status = document.getElementById('eqAIStatus');
+    if (state.count > 40) { status.textContent = 'AI 每次最多生成 40 题，请减少题量。'; return; }
+    var config;
+    try { config = window.KB.AI.validateConfig(window.KB.AISettings.read()); }
+    catch (e) { status.textContent = '请先填写 API 设置，密钥只保存在本页内存中。'; window.KB.AISettings.open(); return; }
+    var controller = new AbortController();
+    state.aiController = controller;
+    setAIBusy(true);
+    status.textContent = 'AI 正在出题，原试卷会保留到生成完成。';
+    try {
+      var range = diffSpec().range;
+      var result = await window.KB.AI.generateEquations({ stage: state.stage, grade: state.grade,
+        term: state.term, diff: [clampForGrade(range[0]), clampForGrade(range[1])], count: state.count }, config, {
+        signal: controller.signal,
+        excludeStems: state.paper.map(function (q) { return q.text.replace(/<br>/g, ' '); }),
+        onProgress: function (progress) { status.textContent = 'AI 正在出题：' + progress.completed + ' / ' + progress.total + '，原试卷暂时保留。'; }
+      });
+      if (controller.signal.aborted) { status.textContent = 'AI 出题已取消，原试卷已保留。'; return; }
+      result.questions.forEach(function (q, i) {
+        q.isAI = true;
+        q.star = i === result.questions.length - 1;
+        if (q.star) q.checkText = '请将求得的解代入原方程检验。';
+      });
+      state.paperMeta = { stage: state.stage, grade: state.grade, term: state.term };
+      state.paper = result.questions;
+      state.paperSource = 'ai';
+      state.generationNotice = '';
+      status.textContent = 'AI 原创题目及答案请人工核验。';
+      renderPaper();
+      renderHint();
+    } catch (e) {
+      status.textContent = controller.signal.aborted ? 'AI 出题已取消，原试卷已保留。' : 'AI 生成失败，原试卷已保留。' + e.message;
+    } finally {
+      state.aiController = null;
+      setAIBusy(false);
+    }
+  }
+
+  function regenerateLocal() { if (state.source === 'local') generate(); }
+
   /* ---------------- 渲染 ---------------- */
   function headerLeft() {
-    return '人教版 · ' + gradeLabel(state.grade) + (state.stage === 'senior' ? '' : termName(state.term));
+    var meta = state.paperMeta || state;
+    return '人教版 · ' + gradeLabel(meta.grade) + (meta.stage === 'senior' ? '' : termName(meta.term));
   }
   function headerRight() {
-    if (state.stage === 'primary') return '简易方程 · 专项练习';
-    if (state.stage === 'junior') return '方程（组） · 专项练习';
+    var meta = state.paperMeta || state;
+    if (meta.stage === 'primary') return '简易方程 · 专项练习';
+    if (meta.stage === 'junior') return '方程（组） · 专项练习';
     return '方程与函数 · 专项练习';
   }
   function paperTitle() {
-    return state.stage === 'primary' ? '解方程专项练习' : '方程专项训练';
+    return (state.paperMeta || state).stage === 'primary' ? '解方程专项练习' : '方程专项训练';
   }
   function instruction() {
     var last = state.paper.length || state.count;
-    if (state.stage === 'primary') {
+    if ((state.paperMeta || state).stage === 'primary') {
       return '写出解方程的过程，注意等号对齐；带★的第' + last + '题还要写出检验过程。';
     }
     return '写出解方程（组）的过程，步骤完整；带★的第' + last + '题还要写出检验过程。';
@@ -413,28 +482,30 @@
     var h = [];
     h.push('<div class="eq-paper-head"><span>' + headerLeft() + '</span><span>' + headerRight() + '</span></div>');
     h.push('<h1>' + paperTitle() + '</h1>');
-    h.push('<div class="eq-meta">共 ' + p.length + ' 题 · 时间 ' + (p.length * 2) + ' 分钟 · 满分 100 分</div>');
+    h.push('<div class="eq-meta">共 ' + p.length + ' 题 · 时间 ' + (p.length * 2) + ' 分钟 · 满分 100 分' + (state.paperSource === 'ai' ? ' · AI 原创，答案请人工核验' : '') + '</div>');
     h.push('<div class="eq-name"><span>姓 名：<i></i></span><span>班：<i></i></span><span>得：<i></i></span></div>');
     h.push('<div class="eq-instruction"><b>答题要求</b><span>' + instruction() + '</span></div>');
     h.push('<div class="eq-grid">');
     p.forEach(function (q, i) {
       h.push('<div class="eq-card' + (q.star ? ' star' : '') + '">' +
         '<div class="eq-text"><span class="eq-no">' + (i + 1) + '.</span>' +
-        (q.star ? '<span class="eq-star">★</span>' : '') + ' ' + q.text + '</div>' +
+        (q.star ? '<span class="eq-star">★</span>' : '') + ' ' + (q.isAI ? escapeText(q.text) : q.text) + '</div>' +
         '<div class="eq-solve">解：</div><div class="eq-space"></div></div>');
     });
     h.push('</div>');
     if (state.showAnswer) {
       h.push('<div class="eq-answers"><h3>参考答案与提示</h3>');
       p.forEach(function (q, i) {
-        h.push('<div class="eq-ans"><b>' + (i + 1) + '.</b> ' + q.answer +
-          (q.steps && q.steps.length ? ' <span class="steps">' + q.steps.join('；') + '</span>' : '') +
-          (q.star && q.checkText ? ' <span class="steps">' + q.checkText + '</span>' : '') + '</div>');
+        h.push('<div class="eq-ans"><b>' + (i + 1) + '.</b> ' + (q.isAI ? escapeText(q.answer) : q.answer) +
+          (q.steps && q.steps.length ? ' <span class="steps">' + (q.isAI ? q.steps.map(escapeText).join('；') : q.steps.join('；')) + '</span>' : '') +
+          (q.star && q.checkText ? ' <span class="steps">' + (q.isAI ? escapeText(q.checkText) : q.checkText) + '</span>' : '') + '</div>');
       });
       h.push('</div>');
     }
     document.getElementById('eqPaper').innerHTML = h.join('');
   }
+
+  function escapeText(value) { return String(value).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
   function renderHint() {
     var spec = diffSpec();
@@ -445,6 +516,7 @@
       '当前：' + STAGES[state.stage].name + gradeLabel(state.grade) +
       (state.stage === 'senior' ? '' : termName(state.term)) +
       ' · ' + spec.label + extra + ' · ' + state.count + ' 题 · 时间 ' + (state.count * 2) + ' 分钟 · 满分 100 分' +
+      (state.source === 'ai' ? ' · AI 调用个人 API，可能产生费用；答案请人工核验（最多 40 题）' : ' · 本地出题') +
       (state.generationNotice ? ' · ' + state.generationNotice : '');
   }
 
@@ -461,7 +533,7 @@
         state.grade = STAGES[id].grades[0];
         state.term = 1;
         renderAll();
-        generate();
+        regenerateLocal();
       };
       box.appendChild(b);
     });
@@ -564,7 +636,7 @@
     var p = state.paper;
     if (!p.length) return;
     var lines = [paperTitle(), headerLeft() + ' · ' + headerRight(),
-      '共 ' + p.length + ' 题 · 时间 ' + (p.length * 2) + ' 分钟 · 满分 100 分', ''];
+      '共 ' + p.length + ' 题 · 时间 ' + (p.length * 2) + ' 分钟 · 满分 100 分' + (state.paperSource === 'ai' ? ' · AI 原创，答案请人工核验' : ''), ''];
     p.forEach(function (q, i) {
       lines.push((i + 1) + '. ' + q.text.replace(/<br>/g, '；') + (q.star ? ' ★' : ''));
       lines.push('解：');
@@ -597,12 +669,12 @@
       state.grade = Number(e.target.value);
       state.stage = stageOf(state.grade);
       renderAll();
-      generate();
+      regenerateLocal();
     };
     document.getElementById('termSel').onchange = function (e) {
       state.term = Number(e.target.value);
       renderHint();
-      generate();
+      regenerateLocal();
     };
     var countSel = document.getElementById('countSel');
     var countInput = document.getElementById('countInput');
@@ -620,7 +692,7 @@
         state.count = Number(e.target.value);
       }
       renderHint();
-      generate();
+      regenerateLocal();
     };
     countInput.onchange = function (e) {
       var v = parseInt(e.target.value, 10);
@@ -629,9 +701,13 @@
       state.count = v;
       e.target.value = String(v);
       renderHint();
-      generate();
+      regenerateLocal();
     };
-    document.getElementById('btnBuild').onclick = generate;
+    document.getElementById('eqModeLocal').onclick = function () { state.source = 'local'; document.getElementById('eqAIStatus').textContent = ''; renderSource(); };
+    document.getElementById('eqModeAI').onclick = function () { state.source = 'ai'; document.getElementById('eqAIStatus').textContent = ''; renderSource(); };
+    document.getElementById('eqAISettings').onclick = function () { window.KB.AISettings.open(); };
+    document.getElementById('eqAICancel').onclick = function () { if (state.aiController) state.aiController.abort(); };
+    document.getElementById('btnBuild').onclick = function () { if (state.source === 'ai') generateAI(); else generate(); };
     document.getElementById('btnPrint').onclick = function () { window.print(); };
     document.getElementById('btnCopy').onclick = copyText;
     document.getElementById('chkAnswer').onchange = function (e) {

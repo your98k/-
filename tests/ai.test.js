@@ -14,6 +14,108 @@ function fresh() {
   return require(file);
 }
 const config = { baseUrl: 'https://api.example.com/v1/', model: 'test-model', apiKey: 'test-secret' };
+
+test('方程 AI 按选择的条件分批生成，返回可展示的题干和答案', async () => {
+  const ai = fresh();
+  assert.equal(typeof ai.generateEquations, 'function', '需要提供方程 AI 出题入口');
+  const calls = [];
+  const fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    const count = calls.length === 1 ? 5 : 2;
+    const questions = Array.from({ length: count }, (_, i) => {
+      const n = (calls.length - 1) * 5 + i + 1;
+      return { text: `x + ${n} = ${n + 2}`, answer: 'x = 2', analysis: `两边减去 ${n}，得到 x = 2。` };
+    });
+    return response({ questions });
+  };
+  const paper = await ai.generateEquations({ stage: 'primary', grade: 5, term: 1, diff: [1, 3], count: 7 }, config, { fetch });
+  assert.equal(calls.length, 2, '每批最多生成五题');
+  assert.equal(paper.questions.length, 7);
+  assert.equal(new Set(paper.questions.map(q => q.text)).size, 7);
+  assert.equal(paper.questions[0].text, 'x + 1 = 3');
+  assert.equal(paper.questions[0].answer, 'x = 2');
+  assert.ok(Array.isArray(paper.questions[0].steps) && paper.questions[0].steps.length);
+  for (const call of calls) {
+    assert.equal(call.url, 'https://api.example.com/v1/chat/completions');
+    assert.equal(call.init.headers.Authorization, 'Bearer test-secret');
+    assert.equal(call.body.model, 'test-model');
+    assert.ok(!JSON.stringify(call.body).includes(config.apiKey), '口令不能出现在请求正文');
+    const prompt = JSON.stringify(call.body.messages);
+    assert.match(prompt, /五|5/);
+  }
+});
+
+test('方程 AI 拒绝无效内容、凭据回显和重复题，不泄露口令或自动重试', async () => {
+  for (const questions of [
+    [{ text: '<img src=x onerror=alert(1)>', answer: 'x = 2', analysis: '解析' }],
+    [{ text: 'x + 2 = 4', answer: 'test-secret', analysis: '解析' }],
+    [{ text: ' x + 1 = 3 ', answer: 'x = 2', analysis: '解析' }]
+  ]) {
+    const ai = fresh();
+    assert.equal(typeof ai.generateEquations, 'function', '需要提供方程 AI 出题入口');
+    let calls = 0;
+    await assert.rejects(ai.generateEquations(
+      { stage: 'primary', grade: 5, term: 1, diff: [1, 3], count: 1 }, config,
+      { fetch: async () => { calls++; return response({ questions }); }, excludeStems: ['x + 1 = 3'] }
+    ), err => !err.message.includes(config.apiKey));
+    assert.equal(calls, 1, '失败时不能自动重试');
+  }
+});
+
+test('方程 AI 拒绝跨批次重复，且不提交部分试卷', async () => {
+  const ai = fresh();
+  assert.equal(typeof ai.generateEquations, 'function', '需要提供方程 AI 出题入口');
+  let calls = 0;
+  const fetch = async () => {
+    calls++;
+    const texts = calls === 1
+      ? ['x + 1 = 3', 'x + 2 = 4', 'x + 3 = 5', 'x + 4 = 6', 'x + 5 = 7']
+      : [' x+1=3 '];
+    return response({ questions: texts.map(text => ({ text, answer: 'x = 2', analysis: '移项并求解。' })) });
+  };
+  await assert.rejects(ai.generateEquations(
+    { stage: 'primary', grade: 5, term: 1, diff: [1, 3], count: 6 }, config, { fetch }
+  ), /重复/);
+  assert.equal(calls, 2);
+});
+
+test('方程 AI 不发送包含访问口令的排除题干', async () => {
+  const ai = fresh();
+  let calls = 0;
+  await assert.rejects(ai.generateEquations(
+    { stage: 'primary', grade: 5, term: 1, diff: [1, 3], count: 1 }, config,
+    { fetch: async () => { calls++; throw new Error('不应发出请求'); }, excludeStems: ['示例 ' + config.apiKey] }
+  ), err => !err.message.includes(config.apiKey));
+  assert.equal(calls, 0, '排除题干含密钥时必须在发送之前拒绝');
+});
+
+test('方程 AI 对已取消请求和无效题量不发网络请求', async () => {
+  const cancelled = new AbortController();
+  cancelled.abort();
+  const valid = { stage: 'primary', grade: 5, term: 1, diff: [1, 3], count: 1 };
+  let calls = 0;
+  const fetch = async () => { calls++; throw new Error('不应发出请求'); };
+  await assert.rejects(fresh().generateEquations(valid, config, { fetch, signal: cancelled.signal }), /取消/);
+  await assert.rejects(fresh().generateEquations({ ...valid, count: 0 }, config, { fetch }));
+  await assert.rejects(fresh().generateEquations({ ...valid, count: 41 }, config, { fetch }));
+  assert.equal(calls, 0);
+});
+
+test('方程 AI 分批中途取消后不发送下一批且不返回部分试卷', async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  const fetch = async () => {
+    calls++;
+    return response({ questions: Array.from({ length: 5 }, (_, i) => ({
+      text: `x + ${i + 1} = ${i + 3}`, answer: 'x = 2', analysis: '移项得到 x = 2。'
+    })) });
+  };
+  await assert.rejects(fresh().generateEquations(
+    { stage: 'primary', grade: 5, term: 1, diff: [1, 3], count: 6 }, config,
+    { fetch, signal: controller.signal, onProgress: p => { if (p.completed === 5) controller.abort(); } }
+  ), /取消/);
+  assert.equal(calls, 1);
+});
 function blueprint(extra = {}) {
   return { subject: 'math', stage: 'primary', grade: 1, term: 1, seed: 'test-seed',
     sections: [{ title: '一、选择', type: 'choice', count: 2, score: 3, diff: [2, 2] }], ...extra };
