@@ -23,6 +23,15 @@ class Element {
     v = String(v); this.attributes[k] = v;
     if (k === 'class') this.className = v;
     else if (['id', 'type', 'value'].includes(k)) this[k] = v;
+    else if (k === 'style') {
+      v.split(';').forEach(pair => {
+        const [prop, val] = pair.split(':').map(s => s.trim());
+        if (prop && val !== undefined) {
+          const camel = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+          this.style[camel] = val;
+        }
+      });
+    }
     else if (['hidden', 'disabled', 'checked', 'selected'].includes(k)) this[k] = true;
     else if (k.startsWith('data-')) this.dataset[k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = v;
   }
@@ -63,6 +72,8 @@ class Element {
   addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
   dispatchEvent(e) {
     e.target ||= this; e.currentTarget = this; e.preventDefault ||= () => {};
+    const propHandler = this['on' + e.type];
+    if (typeof propHandler === 'function') propHandler.call(this, e);
     for (const fn of this.listeners[e.type] || []) fn.call(this, e);
     if (e.bubbles !== false && this.parentNode) this.parentNode.dispatchEvent(e);
     return true;

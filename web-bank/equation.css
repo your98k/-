@@ -77,12 +77,12 @@ body {
 .chip:hover { border-color: var(--brand); color: var(--brand); }
 .chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 
-select {
+select, input[type="number"] {
   border: 1px solid var(--line); border-radius: 7px;
   background: #fff; color: var(--ink);
   padding: 5px 8px; font-size: 12px; outline: none;
 }
-select:focus { border-color: var(--brand); }
+select:focus, input[type="number"]:focus { border-color: var(--brand); }
 
 .eq-custom { display: flex; align-items: center; gap: 5px; }
 .eq-custom span { color: var(--muted); font-size: 12px; }
@@ -223,7 +223,7 @@ select:focus { border-color: var(--brand); }
   .eq-field.wide { grid-column: 1 / -1; }
   .eq-field.actions { grid-column: 1 / -1; }
   .eq-field { justify-content: flex-start; }
-  .eq-field select { flex: 1; }
+  .eq-field select, .eq-field input[type="number"] { flex: 1; }
   .eq-btn { min-height: 40px; }
   .chip { min-height: 34px; display: inline-flex; align-items: center; }
   .eq-paper { border-radius: 6px; }

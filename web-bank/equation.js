@@ -27,6 +27,7 @@
     diffMin: 2,
     diffMax: 4,
     count: 10,
+    isCustomCount: false,
     showAnswer: false,
     paper: []
   };
@@ -341,7 +342,10 @@
 
   /* ---------------- 生成 ---------------- */
   function generate() {
-    var count = parseInt(state.count, 10) || 10;
+    var count = parseInt(state.count, 10);
+    if (isNaN(count) || count < 1) count = 1;
+    if (count > 100) count = 100;
+    state.count = count;
     var questions = [], seen = {}, guard = 0;
     while (questions.length < count && guard < count * 80) {
       guard++;
@@ -516,11 +520,25 @@
     max.value = String(state.diffMax);
   }
 
+  function renderCount() {
+    var sel = document.getElementById('countSel');
+    var input = document.getElementById('countInput');
+    var val = String(state.count);
+    if (['10', '12', '20'].indexOf(val) >= 0 && !state.isCustomCount) {
+      sel.value = val;
+      input.style.display = 'none';
+    } else {
+      sel.value = 'custom';
+      input.style.display = '';
+      input.value = val;
+    }
+  }
+
   function renderAll() {
     renderStageChips();
     renderGrades();
     renderDiff();
-    document.getElementById('countSel').value = String(state.count);
+    renderCount();
     document.getElementById('chkAnswer').checked = state.showAnswer;
     renderHint();
   }
@@ -569,8 +587,30 @@
       renderHint();
       generate();
     };
-    document.getElementById('countSel').onchange = function (e) {
-      state.count = Number(e.target.value);
+    var countSel = document.getElementById('countSel');
+    var countInput = document.getElementById('countInput');
+    countSel.onchange = function (e) {
+      if (e.target.value === 'custom') {
+        state.isCustomCount = true;
+        countInput.style.display = '';
+        var v = parseInt(countInput.value, 10);
+        state.count = (v >= 1 && v <= 100) ? v : 10;
+        countInput.value = String(state.count);
+        countInput.focus();
+      } else {
+        state.isCustomCount = false;
+        countInput.style.display = 'none';
+        state.count = Number(e.target.value);
+      }
+      renderHint();
+      generate();
+    };
+    countInput.onchange = function (e) {
+      var v = parseInt(e.target.value, 10);
+      if (isNaN(v) || v < 1) v = 1;
+      if (v > 100) v = 100;
+      state.count = v;
+      e.target.value = String(v);
       renderHint();
       generate();
     };
