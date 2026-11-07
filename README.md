@@ -3,7 +3,7 @@
   <h1>组卷台</h1>
   <p>一个简单好用的中小学智能题库</p>
   <p>数学 · 语文 · 英语 · 物理 · 化学</p>
-  <p><a href="https://your98k.github.io/k12-ai-question-bank/"><strong>立即开始组卷 →</strong></a></p>
+  <p><a href="https://your98k.github.io/Test-Paper-Compilation-Platform/"><strong>立即开始组卷 →</strong></a></p>
 </div>
 
 ## 功能亮点
