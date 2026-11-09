@@ -15,11 +15,12 @@
 在仓库根目录执行：
 
 ```sh
+npm ci
 node tools/build-android-assets.js
 gradle -p android testDebugUnitTest lintDebug lintRelease assembleDebug bundleRelease
 ```
 
-此流程不需要安装网页的 npm 依赖。项目未提交二进制 Gradle Wrapper，请使用 Gradle 8.13 或在 Android Studio 中为项目选择该版本。
+`npm ci` 安装计算资源构建依赖；其中 Acorn 用于安全转换 Rhino 不兼容的声明，不修改题干、注释或模板文本。项目未提交二进制 Gradle Wrapper，请使用 Gradle 8.13 或在 Android Studio 中为项目选择该版本。
 
 安装包输出：`android/app/build/outputs/apk/debug/app-debug.apk`。连接开启 USB 调试的手机后，可使用：
 

@@ -14,6 +14,22 @@ function runtime() {
 }
 const base = { subject: 'math', stage: 'primary', grade: 5, term: 1, count: 5, type: 'choice', diffMin: 2, diffMax: 3, kps: [], equation: false, ai: false };
 
+test('Android 声明转换保留属性名、题干文本、模板表达式和块作用域', () => {
+  const source = [
+    'const text = "const a = 题干";',
+    'const object = { const: "const", read() { return this.const; } };',
+    'function pick(n) { switch(n) { case 1: { const a = 1; return a; } case 2: { const a = 2; return a; } } }',
+    'const closures = []; for (const n of [1, 2]) closures.push(() => n);',
+    'const template = `const ${(() => { const a = 3; return a; })()}`;',
+    'JSON.stringify([text, object.read(), /const/.source, pick(2), closures.map(f => f()), template]);'
+  ].join('\n');
+  const lowered = assets.blockScopedDeclarations(source);
+  assert.equal(vm.runInNewContext(lowered), vm.runInNewContext(source));
+  // The runtime regression in QuestionEngineTest exercises the generated assets
+  // in Rhino; this fixture additionally protects text and identifier fidelity.
+  assert.match(lowered, /case 2: \{ let a = 2/);
+});
+
 test('Android 题库只暴露 JSON 计算接口，不依赖页面全局对象', () => {
   const s = runtime();
   const topics = JSON.parse(s.NativeQuestionBank.topicsJson(JSON.stringify(base)));

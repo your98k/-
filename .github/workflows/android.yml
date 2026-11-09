@@ -7,14 +7,24 @@ on:
       - 'android/**'
       - 'core/**'
       - 'generators/**'
+      - 'utils/**'
+      - 'web-bank/equation.js'
+      - 'tests/android-assets.test.js'
       - 'tools/build-android-assets.js'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/android.yml'
   pull_request:
     paths:
       - 'android/**'
       - 'core/**'
       - 'generators/**'
+      - 'utils/**'
+      - 'web-bank/equation.js'
+      - 'tests/android-assets.test.js'
       - 'tools/build-android-assets.js'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
@@ -47,7 +57,10 @@ jobs:
         with:
           gradle-version: '8.13'
       - name: Generate offline question engine assets
-        run: node tools/build-android-assets.js
+        run: |
+          npm ci
+          node tools/build-android-assets.js
+          node --test tests/android-assets.test.js
       - name: Test, lint and build debug APK
         run: gradle -p android --no-daemon testDebugUnitTest lintDebug assembleDebug
       - name: Upload installable debug APK
@@ -109,7 +122,9 @@ jobs:
         with:
           gradle-version: '8.13'
       - name: Generate offline question engine assets
-        run: node tools/build-android-assets.js
+        run: |
+          npm ci
+          node tools/build-android-assets.js
       - name: Enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

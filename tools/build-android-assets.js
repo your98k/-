@@ -3,9 +3,30 @@
 // Android 只复用题库计算逻辑；输出不包含 HTML、DOM、网络或网页入口。
 const fs = require('node:fs');
 const path = require('node:path');
+const acorn = require('acorn');
 const ROOT = path.resolve(__dirname, '..');
 
+function blockScopedDeclarations(source) {
+  // Rhino 1.8.1 treats const as function-scoped, even in ES6 mode. Its let
+  // implementation has block scope. Parse declarations so property names,
+  // strings, comments, regexes and template text stay untouched.
+  const pending = [acorn.parse(source, { ecmaVersion: 'latest' })], offsets = [];
+  while (pending.length) {
+    const node = pending.pop();
+    if (node.type === 'VariableDeclaration' && node.kind === 'const') offsets.push(node.start);
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) pending.push(...value.filter(item => item && typeof item.type === 'string'));
+      else if (value && typeof value.type === 'string') pending.push(value);
+    }
+  }
+  for (const start of offsets.sort((a, b) => b - a)) {
+    source = source.slice(0, start) + 'let' + source.slice(start + 5);
+  }
+  return source;
+}
+
 function rhinoCompatible(source, id) {
+  source = blockScopedDeclarations(source);
   if (id !== 'utils/bank.js') return source;
   // Rhino 1.8.x does not implement every spread form. Only lower the known
   // static patterns in the legacy bank; fail if a new unhandled form appears.
@@ -82,7 +103,7 @@ function buildEquationBundle() {
   const start = source.indexOf('  /* ---------------- 基础工具 ---------------- */');
   const end = source.indexOf('  /* ---------------- 生成 ---------------- */', start);
   if (start < 0 || end < 0) throw Error('未找到纯方程工厂边界，停止 Android 构建');
-  const factories = source.slice(start, end);
+  const factories = blockScopedDeclarations(source.slice(start, end));
   if (/\b(document|window|navigator|localStorage|fetch)\b/.test(factories)) throw Error('方程计算资产不可包含网页或网络依赖');
   return '/* Generated native equation calculation asset; no browser UI. */\nvar NativeEquationBank = (function () {\n' +
     `var state = {}, recent = [], serial = 0;
@@ -122,4 +143,4 @@ function writeAssets(destination = path.join(ROOT, 'android/app/src/main/assets'
   return destination;
 }
 if (require.main === module) console.log('已生成 Android 计算资产：' + writeAssets(process.argv[2]));
-module.exports = { buildQuestionBundle, buildEquationBundle, writeAssets };
+module.exports = { buildQuestionBundle, buildEquationBundle, writeAssets, blockScopedDeclarations };

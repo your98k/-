@@ -42,3 +42,26 @@
 - [ ] Create Android Gradle configuration, app resources and CI APK build.
 - [ ] Run JVM tests, lint, compile and device smoke tests where available.
 - [ ] Review final changes, upload build artifact and return the download link with build limitations.
+
+## Continuation: Android build blockers
+
+- Reproduced the latest CI failure (`42600593859`): Rhino 1.8.1 rejects
+  repeated block-local `const` declarations. Android asset generation now uses
+  Acorn to lower declaration nodes to block-scoped `let`, preserving property
+  names, comments, literals and template contents. The web sources stay intact.
+- Corrected the JVM fixture for chemistry grade 9 term 1 and Chinese grade 5
+  term 1: their selected generators support fill-in questions and deliberately
+  lack choice distractors. Kept question count and curriculum checks.
+- Moved the API 27 light navigation bar attribute into `values-v27`; API 26
+  inherits the common theme and uses a dark navigation bar with light icons.
+- CI installs the locked asset dependencies, runs the asset regression tests,
+  and also watches previously missing equation and utility source inputs.
+- Verified 245 Node tests and 13 Android JVM tests, with zero failures. Debug
+  and release lint report zero errors and 17 advisory warnings each.
+- The debug APK builds and its v2 signature verifies; package ID, version and
+  minimum SDK match the plan. No Android device is connected to this workspace;
+  on-device smoke testing remains pending.
+- Full Gradle verification succeeded with JDK 17, Gradle 8.13 and SDK 36:
+  `testDebugUnitTest lintDebug lintRelease assembleDebug assembleRelease bundleRelease assembleDebugAndroidTest`.
+  Debug APK, unsigned release APK/AAB and the instrumentation test APK all build.
+  Compiling the instrumentation APK does not establish that device tests pass.

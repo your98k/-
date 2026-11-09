@@ -4,6 +4,7 @@ _site/
 node_modules/
 .DS_Store
 android/.gradle/
+android/.kotlin/
 android/**/build/
 android/local.properties
 android/app/src/main/assets/question-bank.js

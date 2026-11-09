@@ -24,12 +24,13 @@ class QuestionEngineTest {
         val e = engine()
         for (s in listOf(spec("math", "primary", 5, 1), spec("math", "junior", 7, 1),
             spec("math", "senior", 10, 1), spec("physics", "junior", 8, 1),
-            spec("chemistry", "junior", 9, 1), spec("english", "primary", 5, 1),
-            spec("chinese", "primary", 5, 1))) {
+            // These curricula provide fill-in questions, not choice distractors.
+            spec("chemistry", "junior", 9, 1).copy(type = "fill"), spec("english", "primary", 5, 1),
+            spec("chinese", "primary", 5, 1).copy(type = "fill"))) {
             val allowed = e.topics(s).map { it.id }
             assertTrue("${s.subject} has supported topics", allowed.isNotEmpty())
             val paper = e.generate(s)
-            assertEquals(3, paper.questions.size)
+            assertEquals("${s.subject}/${s.stage}/${s.grade}: ${paper.notice}", 3, paper.questions.size)
             assertTrue(paper.questions.all { it.kp in allowed && it.stem.isNotBlank() && it.answer.isNotBlank() })
             assertEquals("local", paper.source)
         }
