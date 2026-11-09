@@ -53,4 +53,20 @@ class AiClientTest {
         assertThrows(IllegalArgumentException::class.java) { AiClient.parseQuestions(response(), spec, emptyList(), token, 2) }
         assertEquals(AiClient.fingerprint("ｘ ＋ ２ ＝ ５"), AiClient.fingerprint("x+2=5"))
     }
+
+    @Test fun rejectsUnicodeEscapedCredentialEchoInEveryPersistedField() {
+        val escaped = token.map { "\\u%04x".format(it.code) }.joinToString("")
+        for (field in listOf("stem", "answer", "analysis", "opts", "kp")) {
+            val question = mutableMapOf<String, Any>("stem" to "x + 2 = 5", "answer" to "x = 3", "analysis" to "两边减2", "opts" to emptyList<String>(), "kp" to "")
+            question[field] = if (field == "opts") listOf(token) else token
+            val raw = Gson().toJson(mapOf("choices" to listOf(mapOf("finish_reason" to "stop", "message" to mapOf(
+                "content" to Gson().toJson(mapOf("questions" to listOf(question)))
+            ))))).replace(token, escaped)
+            assertFalse(raw.contains(token))
+            val failure = assertThrows(IllegalArgumentException::class.java) {
+                AiClient.parseQuestions(raw, spec, emptyList(), token, 1)
+            }
+            assertTrue("field: $field", failure.message.orEmpty().contains("敏感凭据"))
+        }
+    }
 }

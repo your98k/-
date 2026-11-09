@@ -199,6 +199,14 @@ class AiClient {
             require(array.size() == expected) { "AI 返回题量不符，原试卷已保留。" }
             return array.map { item ->
                 val value = item.asJsonObject
+                // Check decoded field values as well: JSON Unicode escapes can hide
+                // a credential from a raw-response substring check.
+                val returnedText = listOf("stem", "answer", "analysis", "kp").mapNotNull { name ->
+                    value.get(name)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+                } + (value.get("opts")?.takeIf { it.isJsonArray }?.asJsonArray?.mapNotNull { option ->
+                    option.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+                } ?: emptyList())
+                require(returnedText.none { it.contains(secret) }) { "AI 响应包含敏感凭据，已拒绝结果。" }
                 val stem = safeText(value, "stem", 1200)
                 require(!spec.equation || stem.contains('=') || stem.contains('＝')) { "AI 返回内容不是方程，请手动重试。" }
                 val answer = safeText(value, "answer", 1200)
